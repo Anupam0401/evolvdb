@@ -38,8 +38,20 @@ public final class Main {
             RecordId id2 = hf.insert(r2);
             System.out.println("Inserted records: " + id1 + ", " + id2);
 
-            System.out.println("Read back id1: " + new String(hf.read(id1)));
-            System.out.println("Read back id2: " + new String(hf.read(id2)));
+            System.out.println("Scan before update:");
+            for (byte[] rec : hf.scan()) {
+                System.out.println("  - " + new String(rec));
+            }
+
+            // Update second record to a larger one (may relocate)
+            byte[] r2New = "WORLD!!!".getBytes();
+            RecordId id2New = hf.update(id2, r2New);
+            System.out.println("Updated id2 -> " + id2New + ": " + new String(hf.read(id2New)));
+
+            System.out.println("Scan after update:");
+            for (byte[] rec : hf.scan()) {
+                System.out.println("  - " + new String(rec));
+            }
         }
     }
 

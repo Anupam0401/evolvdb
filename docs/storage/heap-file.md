@@ -5,6 +5,7 @@ Status: M4 implemented (HeapFile + RecordManager) with tests and CLI demo.
 See also:
 - [BufferPool](./buffer-pool.md)
 - [Slotted Page Format](./slotted-page.md)
+- [Scan and Update](./scan-and-update.md)
 
 ## High-Level Design (HLD)
 

@@ -124,6 +124,76 @@ public final class SlottedPageFormat implements PageFormat {
         }
     }
 
+    // --- M5: scanning helpers ---
+
+    @Override
+    public int slotCount(Page page) {
+        ByteBuffer buf = page.buffer();
+        buf.order(ByteOrder.LITTLE_ENDIAN);
+        return Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
+    }
+
+    @Override
+    public boolean isLive(Page page, short slotIndex) {
+        if (slotIndex < 0) return false;
+        ByteBuffer buf = page.buffer();
+        buf.order(ByteOrder.LITTLE_ENDIAN);
+        int cap = buf.capacity();
+        int slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
+        int idx = Short.toUnsignedInt(slotIndex);
+        if (idx >= slotCount) return false;
+        int slotPos = cap - (idx + 1) * SLOT_ENTRY_SIZE;
+        short lenRaw = buf.getShort(slotPos + 2);
+        return lenRaw > 0;
+    }
+
+    // --- M5: in-place update when feasible ---
+
+    @Override
+    public boolean update(Page page, RecordId rid, byte[] newRecord) {
+        ByteBuffer buf = page.buffer();
+        buf.order(ByteOrder.LITTLE_ENDIAN);
+        int cap = buf.capacity();
+        int slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
+        int slot = Short.toUnsignedInt(rid.slot());
+        if (slot >= slotCount) return false;
+        int slotPos = cap - (slot + 1) * SLOT_ENTRY_SIZE;
+        int off = Short.toUnsignedInt(buf.getShort(slotPos));
+        short lenRaw = buf.getShort(slotPos + 2);
+        if (lenRaw <= 0) return false; // deleted
+        int currLen = lenRaw;
+
+        int newLen = newRecord.length;
+        if (newLen <= currLen) {
+            // Overwrite in place, shrink logically by updating length
+            int old = buf.position();
+            buf.position(off);
+            buf.put(newRecord);
+            buf.position(old);
+            buf.putShort(slotPos + 2, (short) newLen);
+            return true;
+        }
+
+        // Try to grow in place only if this record is at the end of payload region and there is contiguous free space
+        int freeStart = Short.toUnsignedInt(buf.getShort(OFF_FREE_START));
+        int slotDirStart = cap - slotCount * SLOT_ENTRY_SIZE;
+        int extra = newLen - currLen;
+        boolean atEnd = (off + currLen) == freeStart;
+        boolean haveContiguous = (slotDirStart - freeStart) >= extra;
+        if (atEnd && haveContiguous) {
+            int old = buf.position();
+            buf.position(off);
+            buf.put(newRecord);
+            buf.position(old);
+            buf.putShort(slotPos + 2, (short) newLen);
+            buf.putShort(OFF_FREE_START, (short) (freeStart + extra));
+            return true;
+        }
+
+        // Not possible in place
+        return false;
+    }
+
     /** Packs live records from slots into a contiguous area starting at HEADER_SIZE; updates offsets and freeStart. */
     private void compactInPlace(ByteBuffer buf) {
         buf.order(ByteOrder.LITTLE_ENDIAN);

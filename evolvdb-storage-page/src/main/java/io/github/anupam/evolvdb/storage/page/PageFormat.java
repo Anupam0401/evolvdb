@@ -21,4 +21,18 @@ public interface PageFormat {
 
     /** Deletes a record by id (may tombstone). */
     void delete(Page page, RecordId rid);
+
+    // --- M5 scanning & update helpers ---
+
+    /** Total number of slots currently present (including tombstones). */
+    int slotCount(Page page);
+
+    /** True if the given slot index refers to a live record (not deleted). */
+    boolean isLive(Page page, short slotIndex);
+
+    /**
+     * Attempts an in-place update. Returns true if updated in-place; false if insufficient space
+     * or record is deleted. If false, caller should relocate via delete+insert.
+     */
+    boolean update(Page page, RecordId rid, byte[] newRecord);
 }

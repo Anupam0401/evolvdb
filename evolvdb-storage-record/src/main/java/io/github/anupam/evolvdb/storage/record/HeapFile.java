@@ -9,8 +9,10 @@ import io.github.anupam.evolvdb.storage.page.PageFormat;
 import io.github.anupam.evolvdb.storage.page.RecordId;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * HeapFile stores variable-length records across pages using a PageFormat (Strategy).
@@ -88,5 +90,118 @@ public final class HeapFile {
         } finally {
             buffer.unpin(pid, page.isDirty());
         }
+    }
+
+    /** Updates a record; attempts in-place if possible else tombstones and reinserts, possibly returning a new RecordId. */
+    public RecordId update(RecordId rid, byte[] newRecord) throws IOException {
+        Objects.requireNonNull(rid);
+        Objects.requireNonNull(newRecord);
+        PageId pid = rid.pageId();
+        Page page = buffer.getPage(pid, true);
+        boolean inPlace = false;
+        try {
+            inPlace = format.update(page, rid, newRecord);
+            if (inPlace) {
+                page.markDirty(true);
+                return rid; // stable
+            }
+        } finally {
+            buffer.unpin(pid, inPlace);
+        }
+        // Relocate: delete old, then insert anew
+        delete(rid);
+        return insert(newRecord);
+    }
+
+    /** Returns an Iterator over live RecordIds in page/slot order, skipping tombstones. */
+    public Iterator<RecordId> iterator() {
+        final int pages;
+        try {
+            pages = disk.pageCount(fileId);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+
+        return new Iterator<>() {
+            int pageNo = 0;
+            PageId currentPid = null;
+            Page currentPage = null;
+            int slotCount = 0;
+            short slot = -1;
+            RecordId nextRid = null;
+
+            private void ensurePageLoaded() {
+                while (currentPage == null || slot >= slotCount - 1) {
+                    // Unpin previous
+                    if (currentPage != null) {
+                        buffer.unpin(currentPid, false);
+                        currentPage = null;
+                    }
+                    // No more pages left
+                    if (pageNo >= pages) {
+                        return;
+                    }
+                    currentPid = new PageId(fileId, pageNo++);
+                    try {
+                        currentPage = buffer.getPage(currentPid, false);
+                        slotCount = format.slotCount(currentPage);
+                        slot = -1;
+                    } catch (IOException e) {
+                        throw new IllegalStateException(e);
+                    }
+                }
+            }
+
+            private void advance() {
+                nextRid = null;
+                while (true) {
+                    ensurePageLoaded();
+                    if (currentPage == null) {
+                        return; // no more pages
+                    }
+                    while (++slot < slotCount) {
+                        if (format.isLive(currentPage, slot)) {
+                            nextRid = new RecordId(currentPid, slot);
+                            return;
+                        }
+                    }
+                    // loop to next page
+                }
+            }
+
+            @Override
+            public boolean hasNext() {
+                if (nextRid == null) advance();
+                if (nextRid == null && currentPage != null) {
+                    buffer.unpin(currentPid, false);
+                    currentPage = null;
+                }
+                return nextRid != null;
+            }
+
+            @Override
+            public RecordId next() {
+                if (!hasNext()) throw new NoSuchElementException();
+                RecordId out = nextRid;
+                nextRid = null;
+                return out;
+            }
+        };
+    }
+
+    /** Returns an Iterable of record bytes over the heap file (live records only). */
+    public Iterable<byte[]> scan() {
+        return () -> new Iterator<>() {
+            final Iterator<RecordId> it = iterator();
+            @Override public boolean hasNext() { return it.hasNext(); }
+            @Override public byte[] next() {
+                RecordId rid = it.next();
+                try {
+                    return read(rid);
+                } catch (IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        };
     }
 }
