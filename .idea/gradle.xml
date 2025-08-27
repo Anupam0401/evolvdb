@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="gradleHome" value="" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/evolvdb-catalog" />
+            <option value="$PROJECT_DIR$/evolvdb-cli" />
+            <option value="$PROJECT_DIR$/evolvdb-common" />
+            <option value="$PROJECT_DIR$/evolvdb-config" />
+            <option value="$PROJECT_DIR$/evolvdb-core" />
+            <option value="$PROJECT_DIR$/evolvdb-storage-buffer" />
+            <option value="$PROJECT_DIR$/evolvdb-storage-disk" />
+            <option value="$PROJECT_DIR$/evolvdb-storage-page" />
+            <option value="$PROJECT_DIR$/evolvdb-types" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>
