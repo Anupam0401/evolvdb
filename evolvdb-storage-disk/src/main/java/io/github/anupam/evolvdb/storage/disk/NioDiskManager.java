@@ -70,6 +70,15 @@ public final class NioDiskManager implements DiskManager {
     }
 
     @Override
+    public int pageCount(FileId fileId) throws IOException {
+        var ch = openOrCreate(fileId);
+        synchronized (ch) {
+            long size = ch.size();
+            return (int) (size / pageSize);
+        }
+    }
+
+    @Override
     public void close() throws IOException {
         IOException first = null;
         for (var entry : openFiles.entrySet()) {

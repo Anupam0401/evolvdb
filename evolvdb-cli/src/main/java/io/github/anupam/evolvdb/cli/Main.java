@@ -1,6 +1,11 @@
 package io.github.anupam.evolvdb.cli;
 
 import io.github.anupam.evolvdb.config.DbConfig;
+import io.github.anupam.evolvdb.core.Database;
+import io.github.anupam.evolvdb.storage.page.SlottedPageFormat;
+import io.github.anupam.evolvdb.storage.record.RecordManager;
+import io.github.anupam.evolvdb.storage.record.HeapFile;
+import io.github.anupam.evolvdb.storage.page.RecordId;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,6 +25,22 @@ public final class Main {
 
         System.out.println("EvolvDB starting with config: " + config);
         System.out.println("Data directory: " + config.dataDir().toAbsolutePath());
+
+        // Minimal demo: create Database, open a HeapFile via RecordManager, insert and read back
+        try (Database db = new Database(config)) {
+            RecordManager rm = new RecordManager(db.disk(), db.buffer());
+            SlottedPageFormat fmt = new SlottedPageFormat();
+            HeapFile hf = rm.openHeapFile("demo_table", fmt);
+
+            byte[] r1 = "hello".getBytes();
+            byte[] r2 = "world".getBytes();
+            RecordId id1 = hf.insert(r1);
+            RecordId id2 = hf.insert(r2);
+            System.out.println("Inserted records: " + id1 + ", " + id2);
+
+            System.out.println("Read back id1: " + new String(hf.read(id1)));
+            System.out.println("Read back id2: " + new String(hf.read(id2)));
+        }
     }
 
     /**

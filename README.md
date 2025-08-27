@@ -13,7 +13,7 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
 - DiskManager (M1): ✅ NIO-based page I/O with tests
 - BufferPool (M2): ✅ Pin/unpin, LRU eviction (Strategy), dirty + flush-on-evict with tests
 - Slotted Page (M3): ✅ Spec + API + implementation with compaction and tests
-- HeapFile/RecordManager (M4): ⏳ (next)
+- HeapFile/RecordManager (M4): ✅ HeapFile + RecordManager with tests and CLI demo
 - Catalog & Types: ⏳ (basic components scaffolded)
 - SQL Parser/AST, Execution, Optimizer, Txn/Recovery: later milestones
 
@@ -25,6 +25,7 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
 - `evolvdb-storage-disk`: `DiskManager`, `NioDiskManager`, tests
 - `evolvdb-storage-page`: page abstractions and formats (`Page`, `PageFormat`, `SlottedPageFormat`), tests
 - `evolvdb-storage-buffer`: `BufferPool`, eviction policies (`EvictionPolicy`, `LruEvictionPolicy`), tests
+- `evolvdb-storage-record`: `HeapFile`, `RecordManager`, tests
 - `evolvdb-catalog`: catalog scaffolding (to be implemented)
 - `evolvdb-core`: `Database` facade (composition root)
 - `evolvdb-cli`: minimal CLI entrypoint for demos

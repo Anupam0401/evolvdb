@@ -16,6 +16,7 @@
             <option value="$PROJECT_DIR$/evolvdb-storage-buffer" />
             <option value="$PROJECT_DIR$/evolvdb-storage-disk" />
             <option value="$PROJECT_DIR$/evolvdb-storage-page" />
+            <option value="$PROJECT_DIR$/evolvdb-storage-record" />
             <option value="$PROJECT_DIR$/evolvdb-types" />
           </set>
         </option>

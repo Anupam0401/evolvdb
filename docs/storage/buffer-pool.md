@@ -3,6 +3,7 @@
 Status: M2 implemented (DefaultBufferPool with LRU eviction).
 
 See also: [Slotted Page Format](./slotted-page.md) for the in-page record layout that BufferPool pages will contain.
+See also: [HeapFile](./heap-file.md) for how clients use BufferPool to manage pages across a file.
 
 ## High-Level Design (HLD)
 

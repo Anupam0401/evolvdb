@@ -6,6 +6,7 @@ include(
     "evolvdb-storage-disk",
     "evolvdb-storage-page",
     "evolvdb-storage-buffer",
+    "evolvdb-storage-record",
     "evolvdb-catalog",
     "evolvdb-core",
     "evolvdb-cli"

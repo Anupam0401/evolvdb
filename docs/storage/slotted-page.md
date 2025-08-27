@@ -1,8 +1,9 @@
 # Slotted Page Format
 
-Status: Spec finalized; API defined. Implementation to follow.
+Status: Implemented (API + insert/read/delete + compaction) with tests.
 
 See also: [BufferPool](./buffer-pool.md) for how pages are fetched, pinned, and flushed while using this format.
+See also: [HeapFile](./heap-file.md) for how records are organized across pages using this format.
 
 ## High-Level Design (HLD)
 
@@ -21,8 +22,11 @@ See also: [BufferPool](./buffer-pool.md) for how pages are fetched, pinned, and 
 flowchart TB
   subgraph Page
     direction TB
-    Header[[Header]] --> Payload[Payload region grows up]
-    SlotDir[Slot Directory grows down] -->|slots| Entries[slot: (offset,len)]
+    Header[Header]
+    Payload[Payload region (grows up)]
+    SlotDir[Slot Directory (grows down)]
+    Header --> Payload
+    SlotDir --> Slots[Slot entries (offset,len)]
   end
 ```
 
@@ -61,7 +65,7 @@ sequenceDiagram
   F->>P: mark len = -abs(len)
 
   C->>F: read(P, rid)
-  F->>P: locate slot entry; if len < 0 -> empty
+  F->>P: locate slot entry (if len < 0, then empty)
   F->>P: slice payload(offset,len) and return bytes
 ```
 

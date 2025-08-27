@@ -19,6 +19,9 @@ public interface DiskManager extends AutoCloseable {
     /** Flushes data to stable storage. */
     void sync() throws IOException;
 
+    /** Returns the number of pages currently allocated for the given file. */
+    int pageCount(FileId fileId) throws IOException;
+
     @Override
     void close() throws IOException;
 }
