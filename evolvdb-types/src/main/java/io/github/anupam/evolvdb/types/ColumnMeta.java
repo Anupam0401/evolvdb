@@ -9,6 +9,8 @@ public record ColumnMeta(String name, Type type, Integer length) {
         Objects.requireNonNull(type, "type");
         if (type == Type.VARCHAR) {
             if (length == null || length <= 0) throw new IllegalArgumentException("VARCHAR requires positive length");
+        } else {
+            if (length != null) throw new IllegalArgumentException("length must be null for non-VARCHAR types");
         }
     }
 }

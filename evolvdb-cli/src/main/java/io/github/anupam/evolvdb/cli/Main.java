@@ -6,11 +6,18 @@ import io.github.anupam.evolvdb.storage.page.SlottedPageFormat;
 import io.github.anupam.evolvdb.storage.record.RecordManager;
 import io.github.anupam.evolvdb.storage.record.HeapFile;
 import io.github.anupam.evolvdb.storage.page.RecordId;
+import io.github.anupam.evolvdb.types.ColumnMeta;
+import io.github.anupam.evolvdb.types.Schema;
+import io.github.anupam.evolvdb.types.Type;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.List;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 
 public final class Main {
     public static void main(String[] args) throws IOException {
@@ -28,29 +35,29 @@ public final class Main {
 
         // Minimal demo: create Database, open a HeapFile via RecordManager, insert and read back
         try (Database db = new Database(config)) {
-            RecordManager rm = new RecordManager(db.disk(), db.buffer());
-            SlottedPageFormat fmt = new SlottedPageFormat();
-            HeapFile hf = rm.openHeapFile("demo_table", fmt);
+            // M6: Catalog demo: create table users(id INT, name STRING), insert and scan
+            var schema = new Schema(List.of(
+                    new ColumnMeta("id", Type.INT, null),
+                    new ColumnMeta("name", Type.STRING, null)
+            ));
+            var cat = db.catalog();
+            var meta = cat.getTable("users").orElseGet(() -> {
+                try { cat.createTable("users", schema); } catch (IOException e) { throw new RuntimeException(e); }
+                return cat.getTable("users").orElseThrow();
+            });
 
-            byte[] r1 = "hello".getBytes();
-            byte[] r2 = "world".getBytes();
-            RecordId id1 = hf.insert(r1);
-            RecordId id2 = hf.insert(r2);
-            System.out.println("Inserted records: " + id1 + ", " + id2);
+            var rm = new RecordManager(db.disk(), db.buffer());
+            var fmt = new SlottedPageFormat();
+            HeapFile users = rm.openHeapFile(meta.fileId().name(), fmt);
 
-            System.out.println("Scan before update:");
-            for (byte[] rec : hf.scan()) {
-                System.out.println("  - " + new String(rec));
-            }
+            // Insert two rows
+            RecordId u1 = users.insert(RowCodec.encode(1, "Alice"));
+            RecordId u2 = users.insert(RowCodec.encode(2, "Bob"));
+            System.out.println("Inserted into users: " + u1 + ", " + u2);
 
-            // Update second record to a larger one (may relocate)
-            byte[] r2New = "WORLD!!!".getBytes();
-            RecordId id2New = hf.update(id2, r2New);
-            System.out.println("Updated id2 -> " + id2New + ": " + new String(hf.read(id2New)));
-
-            System.out.println("Scan after update:");
-            for (byte[] rec : hf.scan()) {
-                System.out.println("  - " + new String(rec));
+            System.out.println("Scan users:");
+            for (byte[] rec : users.scan()) {
+                System.out.println("  - " + RowCodec.toString(rec));
             }
         }
     }
@@ -80,5 +87,25 @@ public final class Main {
         }
         // Fallback to current dir if no markers found
         return start;
+    }
+
+    // Simple row codec for demo: [int id][short nameLen][name bytes UTF-8]
+    static final class RowCodec {
+        static byte[] encode(int id, String name) {
+            byte[] nb = name.getBytes(StandardCharsets.UTF_8);
+            ByteBuffer buf = ByteBuffer.allocate(4 + 2 + nb.length).order(ByteOrder.LITTLE_ENDIAN);
+            buf.putInt(id);
+            buf.putShort((short) nb.length);
+            buf.put(nb);
+            return buf.array();
+        }
+        static String toString(byte[] bytes) {
+            ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+            int id = buf.getInt();
+            int nlen = Short.toUnsignedInt(buf.getShort());
+            byte[] nb = new byte[nlen];
+            buf.get(nb);
+            return "(" + id + ", '" + new String(nb, StandardCharsets.UTF_8) + "')";
+        }
     }
 }

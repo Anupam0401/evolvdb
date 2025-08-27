@@ -6,6 +6,7 @@ See also:
 - [BufferPool](./buffer-pool.md)
 - [Slotted Page Format](./slotted-page.md)
 - [Scan and Update](./scan-and-update.md)
+- [Catalog](../catalog/catalog.md)
 
 ## High-Level Design (HLD)
 

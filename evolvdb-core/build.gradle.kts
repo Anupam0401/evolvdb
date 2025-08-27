@@ -7,6 +7,7 @@ dependencies {
     api(project(":evolvdb-config"))
     api(project(":evolvdb-storage-disk"))
     api(project(":evolvdb-storage-buffer"))
+    api(project(":evolvdb-catalog"))
 
     // Internal implementation details
     implementation(project(":evolvdb-storage-page"))

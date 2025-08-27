@@ -5,5 +5,7 @@ public enum Type {
     INT,
     BIGINT,
     BOOLEAN,
-    VARCHAR
+    VARCHAR,
+    FLOAT,
+    STRING // variable-length textual type (alias-like, does not require explicit length)
 }
