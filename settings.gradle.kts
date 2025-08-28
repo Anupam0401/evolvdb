@@ -9,5 +9,6 @@ include(
     "evolvdb-storage-record",
     "evolvdb-catalog",
     "evolvdb-core",
-    "evolvdb-cli"
+    "evolvdb-cli",
+    "evolvdb-sql"
 )

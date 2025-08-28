@@ -14,6 +14,7 @@
             <option value="$PROJECT_DIR$/evolvdb-common" />
             <option value="$PROJECT_DIR$/evolvdb-config" />
             <option value="$PROJECT_DIR$/evolvdb-core" />
+            <option value="$PROJECT_DIR$/evolvdb-sql" />
             <option value="$PROJECT_DIR$/evolvdb-storage-buffer" />
             <option value="$PROJECT_DIR$/evolvdb-storage-disk" />
             <option value="$PROJECT_DIR$/evolvdb-storage-page" />
