@@ -2,10 +2,8 @@ package io.github.anupam.evolvdb.cli;
 
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.core.Database;
-import io.github.anupam.evolvdb.storage.page.SlottedPageFormat;
-import io.github.anupam.evolvdb.storage.record.RecordManager;
-import io.github.anupam.evolvdb.storage.record.HeapFile;
-import io.github.anupam.evolvdb.storage.page.RecordId;
+import io.github.anupam.evolvdb.catalog.Table;
+import io.github.anupam.evolvdb.types.Tuple;
 import io.github.anupam.evolvdb.types.ColumnMeta;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Type;
@@ -15,9 +13,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.List;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 
 public final class Main {
     public static void main(String[] args) throws IOException {
@@ -33,7 +28,7 @@ public final class Main {
         System.out.println("EvolvDB starting with config: " + config);
         System.out.println("Data directory: " + config.dataDir().toAbsolutePath());
 
-        // Minimal demo: create Database, open a HeapFile via RecordManager, insert and read back
+        // Minimal demo: create Database, use Catalog to create/open a table, insert tuples and scan
         try (Database db = new Database(config)) {
             // M6: Catalog demo: create table users(id INT, name STRING), insert and scan
             var schema = new Schema(List.of(
@@ -45,19 +40,18 @@ public final class Main {
                 try { cat.createTable("users", schema); } catch (IOException e) { throw new RuntimeException(e); }
                 return cat.getTable("users").orElseThrow();
             });
+            Table users = cat.openTable(meta.id());
 
-            var rm = new RecordManager(db.disk(), db.buffer());
-            var fmt = new SlottedPageFormat();
-            HeapFile users = rm.openHeapFile(meta.fileId().name(), fmt);
-
-            // Insert two rows
-            RecordId u1 = users.insert(RowCodec.encode(1, "Alice"));
-            RecordId u2 = users.insert(RowCodec.encode(2, "Bob"));
-            System.out.println("Inserted into users: " + u1 + ", " + u2);
+            // Insert two tuples
+            var t1 = new Tuple(users.schema(), List.of(1, "Alice"));
+            var t2 = new Tuple(users.schema(), List.of(2, "Bob"));
+            var r1 = users.insert(t1);
+            var r2 = users.insert(t2);
+            System.out.println("Inserted into users: " + r1 + ", " + r2);
 
             System.out.println("Scan users:");
-            for (byte[] rec : users.scan()) {
-                System.out.println("  - " + RowCodec.toString(rec));
+            for (var tup : users.scanTuples()) {
+                System.out.println("  - " + tup.values());
             }
         }
     }
@@ -87,25 +81,5 @@ public final class Main {
         }
         // Fallback to current dir if no markers found
         return start;
-    }
-
-    // Simple row codec for demo: [int id][short nameLen][name bytes UTF-8]
-    static final class RowCodec {
-        static byte[] encode(int id, String name) {
-            byte[] nb = name.getBytes(StandardCharsets.UTF_8);
-            ByteBuffer buf = ByteBuffer.allocate(4 + 2 + nb.length).order(ByteOrder.LITTLE_ENDIAN);
-            buf.putInt(id);
-            buf.putShort((short) nb.length);
-            buf.put(nb);
-            return buf.array();
-        }
-        static String toString(byte[] bytes) {
-            ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-            int id = buf.getInt();
-            int nlen = Short.toUnsignedInt(buf.getShort());
-            byte[] nb = new byte[nlen];
-            buf.get(nb);
-            return "(" + id + ", '" + new String(nb, StandardCharsets.UTF_8) + "')";
-        }
     }
 }

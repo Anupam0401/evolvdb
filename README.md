@@ -10,23 +10,32 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
 
 ## Project Status (Milestones)
 
-- DiskManager (M1): ✅ NIO-based page I/O with tests
-- BufferPool (M2): ✅ Pin/unpin, LRU eviction (Strategy), dirty + flush-on-evict with tests
-- Slotted Page (M3): ✅ Spec + API + implementation with compaction and tests
-- HeapFile/RecordManager (M4): ✅ HeapFile + RecordManager with tests and CLI demo
-- Catalog & Types: ⏳ (basic components scaffolded)
-- SQL Parser/AST, Execution, Optimizer, Txn/Recovery: later milestones
+### ✅ Completed
+- M1: DiskManager — NIO-based page I/O with tests. Docs: `docs/storage/disk-manager.md`
+- M2: BufferPool — Pin/unpin, LRU eviction (Strategy), dirty tracking, flush-on-evict. Docs: `docs/storage/buffer-pool.md`
+- M3: Slotted Page — Variable-length layout, compaction, free space calc. Docs: `docs/storage/slotted-page.md`
+- M4: HeapFile & RecordManager — File-level record insert/read/delete across pages. Docs: `docs/storage/heap-file.md`
+- M5: Scan & Update — Sequential scans and in-place/relocate update semantics. Docs: `docs/storage/scan-and-update.md`
+- M6: Catalog & Schema — Persistent TableMeta with versioned codec; CatalogManager; `Type/Schema/ColumnMeta` finalized. Docs: `docs/catalog/catalog.md`
+
+### 🚧 In Progress
+- M7: Tuple Format & RowCodec — Tuple bound to Schema; fixed/var-width encoding; integrate with HeapFile; CLI tuple demo. Docs: `docs/tuple/tuple.md`
+
+### 📌 Roadmap (Upcoming)
+- M8: Transactions & Recovery — WAL, checkpoints, basic concurrency control.
+- M9: SQL Parser/Planner/Executor — Minimal SQL, logical plan, naive executor.
+- M10: Indexes — B-Tree index, index scans; basic optimizer rules.
 
 ## Module Overview
 
 - `evolvdb-common`: shared exceptions/utilities
 - `evolvdb-config`: `DbConfig` (page size, buffer pool size, data dir, ...)
-- `evolvdb-types`: type system and schema (`Type`, `ColumnMeta`, `Schema`)
+- `evolvdb-types`: type system and schema (`Type`, `ColumnMeta`, `Schema`), plus row APIs (`Tuple`, `RowCodec`)
 - `evolvdb-storage-disk`: `DiskManager`, `NioDiskManager`, tests
 - `evolvdb-storage-page`: page abstractions and formats (`Page`, `PageFormat`, `SlottedPageFormat`), tests
 - `evolvdb-storage-buffer`: `BufferPool`, eviction policies (`EvictionPolicy`, `LruEvictionPolicy`), tests
 - `evolvdb-storage-record`: `HeapFile`, `RecordManager`, tests
-- `evolvdb-catalog`: catalog scaffolding (to be implemented)
+- `evolvdb-catalog`: persistent catalog manager (`TableId`, `TableMeta`, `CatalogManager`, codec)
 - `evolvdb-core`: `Database` facade (composition root)
 - `evolvdb-cli`: minimal CLI entrypoint for demos
 
@@ -76,6 +85,10 @@ See the `docs/` folder. Start here:
 - DiskManager: `docs/storage/disk-manager.md`
 - BufferPool: `docs/storage/buffer-pool.md`
 - Slotted Page: `docs/storage/slotted-page.md`
+- HeapFile: `docs/storage/heap-file.md`
+- Scan & Update: `docs/storage/scan-and-update.md`
+- Catalog & Schema: `docs/catalog/catalog.md`
+- Tuple & RowCodec: `docs/tuple/tuple.md`
 
 Diagrams are provided using Mermaid (flows, sequences, class relationships). All components include HLD, LLD, patterns, SOLID notes, and trade-offs.
 

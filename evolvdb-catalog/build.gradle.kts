@@ -10,4 +10,6 @@ dependencies {
     implementation(project(":evolvdb-storage-page"))
     implementation(project(":evolvdb-storage-record"))
     implementation(project(":evolvdb-common"))
+
+    testImplementation(project(":evolvdb-core"))
 }

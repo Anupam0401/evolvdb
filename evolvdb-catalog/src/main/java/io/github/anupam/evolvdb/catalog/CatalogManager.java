@@ -99,4 +99,24 @@ public final class CatalogManager {
     public synchronized List<TableMeta> listTables() {
         return Collections.unmodifiableList(new ArrayList<>(byId.values()));
     }
+
+    /** Opens a table by name and returns a tuple-oriented Table handle. */
+    public synchronized Table openTable(String name) throws IOException {
+        Objects.requireNonNull(name);
+        TableMeta meta = byName.get(name.toLowerCase(Locale.ROOT));
+        if (meta == null) throw new IllegalArgumentException("unknown table: " + name);
+        RecordManager rm = new RecordManager(disk, buffer);
+        HeapFile hf = rm.openHeapFile(meta.fileId().name(), format);
+        return new Table(meta, hf);
+    }
+
+    /** Opens a table by id and returns a tuple-oriented Table handle. */
+    public synchronized Table openTable(TableId id) throws IOException {
+        Objects.requireNonNull(id);
+        TableMeta meta = byId.get(id.value());
+        if (meta == null) throw new IllegalArgumentException("unknown table id: " + id);
+        RecordManager rm = new RecordManager(disk, buffer);
+        HeapFile hf = rm.openHeapFile(meta.fileId().name(), format);
+        return new Table(meta, hf);
+    }
 }
