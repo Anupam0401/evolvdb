@@ -1,31 +1,58 @@
 package io.github.anupam.evolvdb.sql.parser;
 
-import org.junit.jupiter.api.Disabled;
+import io.github.anupam.evolvdb.sql.ast.*;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class SqlParserTest {
 
     @Test
-    @Disabled("parser not implemented yet")
     void testParseCreateTable_basic() {
-        // TODO: parse and assert AST shape
+            String sql = "CREATE TABLE users (id INT, name VARCHAR(10), active BOOLEAN)";
+            SqlParser p = new SqlParser();
+            AstNode node = p.parse(sql);
+            assertTrue(node instanceof CreateTable);
+            CreateTable ct = (CreateTable) node;
+            assertEquals("users", ct.tableName());
+            assertEquals(3, ct.columns().size());
+            assertEquals("id", ct.columns().get(0).name());
+            assertEquals(io.github.anupam.evolvdb.types.Type.INT, ct.columns().get(0).type());
+            assertEquals("name", ct.columns().get(1).name());
+            assertEquals(io.github.anupam.evolvdb.types.Type.VARCHAR, ct.columns().get(1).type());
+            assertEquals(10, ct.columns().get(1).length());
     }
 
     @Test
-    @Disabled("parser not implemented yet")
     void testParseInsert_basic() {
-        // TODO
+        String sql = "INSERT INTO users VALUES (1, 'Alice')";
+        SqlParser p = new SqlParser();
+        AstNode n = p.parse(sql);
+        assertTrue(n instanceof Insert);
+        Insert ins = (Insert) n;
+        assertEquals("users", ins.tableName());
+        assertTrue(ins.columns().isEmpty());
+        assertEquals(1, ins.rows().size());
+        assertEquals(2, ins.rows().get(0).size());
     }
 
     @Test
-    @Disabled("parser not implemented yet")
     void testParseSelect_basic() {
-        // TODO
+        String sql = "SELECT name FROM users WHERE id >= 10";
+        SqlParser p = new SqlParser();
+        AstNode n = p.parse(sql);
+        assertTrue(n instanceof Select);
+        Select s = (Select) n;
+        assertEquals("users", s.from().tableName());
+        assertEquals(1, s.items().size());
+        assertNotNull(s.where());
     }
 
     @Test
-    @Disabled("parser not implemented yet")
     void testInvalidSyntax_reportsErrorPosition() {
-        // TODO
+        String sql = "SELECT FROM";
+        SqlParser p = new SqlParser();
+        SqlParseException ex = assertThrows(SqlParseException.class, () -> p.parse(sql));
+        assertTrue(ex.getMessage().contains("Unexpected token"));
     }
 }

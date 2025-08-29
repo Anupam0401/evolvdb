@@ -18,9 +18,10 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
 - M5: Scan & Update — Sequential scans and in-place/relocate update semantics. Docs: `docs/storage/scan-and-update.md`
 - M6: Catalog & Schema — Persistent TableMeta with versioned codec; CatalogManager; `Type/Schema/ColumnMeta` finalized. Docs: `docs/catalog/catalog.md`
 - M7: Tuple & RowCodec — Tuple bound to Schema; RowCodec for fixed/var width; `Table` wrapper over HeapFile. Docs: `docs/tuple/tuple.md`
+- M8: SQL Parser & AST — Minimal grammar for CREATE/INSERT/SELECT; typed AST; validator integrated with Catalog. Docs: `docs/sql/parser.md`
 
 ### 🚧 In Progress
-- M8: SQL Parser & AST — Minimal grammar for CREATE/INSERT/SELECT; typed AST; validation. Docs: `docs/sql/parser.md`
+- M9: Logical Planner & Analyzer — Binder, type-checker, logical operators. Docs: `docs/planner/logical-plans.md` (to be added)
 
 ### 📌 Roadmap (Upcoming)
 - M9: Logical Planner & Analyzer — Binder, type-checker, logical operators.
@@ -106,11 +107,11 @@ flowchart LR
 - `evolvdb-storage-buffer`: `BufferPool`, eviction policies (`EvictionPolicy`, `LruEvictionPolicy`), tests
 - `evolvdb-storage-record`: `HeapFile`, `RecordManager`, tests
 - `evolvdb-catalog`: persistent catalog manager (`TableId`, `TableMeta`, `CatalogManager`, codec)
+- `evolvdb-sql`: SQL layer: Parser, AST, Validator
 - `evolvdb-core`: `Database` facade (composition root)
 - `evolvdb-cli`: minimal CLI entrypoint for demos
 
 Planned modules:
-- `evolvdb-sql`: SQL layer: Parser, AST, Validator
 - `evolvdb-planner`: binder/analyzer, logical plans, rule framework
 - `evolvdb-exec`: physical planner, Volcano operators, expression eval
 - `evolvdb-index-btree`: B+Tree index and IndexScan

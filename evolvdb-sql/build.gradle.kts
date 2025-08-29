@@ -5,4 +5,5 @@ plugins {
 dependencies {
     implementation(project(":evolvdb-types"))
     implementation(project(":evolvdb-catalog"))
+    testImplementation(project(":evolvdb-core"))
 }
