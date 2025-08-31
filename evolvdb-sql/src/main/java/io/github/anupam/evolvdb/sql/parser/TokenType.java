@@ -9,6 +9,7 @@ public enum TokenType {
 
     // Keywords
     CREATE, TABLE, DROP, INSERT, INTO, VALUES, SELECT, FROM, WHERE, AS,
+    GROUP, BY,
     AND, OR, NOT,
     TRUE, FALSE,
     INT, BIGINT, BOOLEAN, FLOAT, STRING_T, VARCHAR,

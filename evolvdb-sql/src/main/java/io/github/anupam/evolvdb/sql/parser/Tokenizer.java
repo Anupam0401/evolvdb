@@ -25,6 +25,8 @@ final class Tokenizer {
         KEYWORDS.put("FROM", TokenType.FROM);
         KEYWORDS.put("WHERE", TokenType.WHERE);
         KEYWORDS.put("AS", TokenType.AS);
+        KEYWORDS.put("GROUP", TokenType.GROUP);
+        KEYWORDS.put("BY", TokenType.BY);
         // booleans / logical
         KEYWORDS.put("AND", TokenType.AND);
         KEYWORDS.put("OR", TokenType.OR);

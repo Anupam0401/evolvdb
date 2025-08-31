@@ -14,6 +14,7 @@ public interface AstVisitor<R, C> {
     default R visitBinaryExpr(BinaryExpr node, C context) { return visitNode(node, context); }
     default R visitLogicalExpr(LogicalExpr node, C context) { return visitNode(node, context); }
     default R visitComparisonExpr(ComparisonExpr node, C context) { return visitNode(node, context); }
+    default R visitFuncCall(FuncCall node, C context) { return visitNode(node, context); }
 
     default R visitTableRef(TableRef node, C context) { return visitNode(node, context); }
     default R visitSelectItem(SelectItem node, C context) { return visitNode(node, context); }

@@ -19,14 +19,14 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
 - M6: Catalog & Schema — Persistent TableMeta with versioned codec; CatalogManager; `Type/Schema/ColumnMeta` finalized. Docs: `docs/catalog/catalog.md`
 - M7: Tuple & RowCodec — Tuple bound to Schema; RowCodec for fixed/var width; `Table` wrapper over HeapFile. Docs: `docs/tuple/tuple.md`
 - M8: SQL Parser & AST — Minimal grammar for CREATE/INSERT/SELECT; typed AST; validator integrated with Catalog. Docs: `docs/sql/parser.md`
+- M9: Logical Planner & Analyzer — AST→logical plan with binder, type-check; docs: `docs/planner/logical-plans.md`
 
 ### 🚧 In Progress
-- M9: Logical Planner & Analyzer — Binder, type-checker, logical operators. Docs: `docs/planner/logical-plans.md` (to be added)
+- —
 
 ### 📌 Roadmap (Upcoming)
-- M9: Logical Planner & Analyzer — Binder, type-checker, logical operators.
 - M10: Physical Planning & Execution (Volcano) — Physical operators, iterator engine.
-- M11: Simple Query Optimizer — Pushdowns and join heuristics.
+- M11: Simple Query Optimizer — advanced rule optimizations (constant folding, projection pruning), predicate reordering, simple join heuristics.
 - M12: Indexing (B+Tree) — Secondary indexes + IndexScan.
 - M13: Transactions & Concurrency (2PL baseline) — Txn + Lock managers.
 - M14: Durability & Recovery (WAL) — WAL, checkpoints, crash recovery.
@@ -83,7 +83,7 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
   - SQL front-end (parser/AST, binder/validator) — parse and type-check SQL
   - Logical Planner — RA operators with schema propagation
   - Physical Planning & Execution (Volcano) — iterator engine, operators
-  - Optimizer — rule-based pushdowns and basic join order heuristics
+  - Optimizer — rule-based pushdowns and basic join order heuristics; advanced rewrites (constant folding, projection pruning)
   - Indexing — B+Tree, IndexScan, index-aware plans
   - Transactions — 2PL or MVCC, Txn/Lock managers, isolation
   - Durability & Recovery — WAL, checkpoints, crash recovery
@@ -108,11 +108,11 @@ flowchart LR
 - `evolvdb-storage-record`: `HeapFile`, `RecordManager`, tests
 - `evolvdb-catalog`: persistent catalog manager (`TableId`, `TableMeta`, `CatalogManager`, codec)
 - `evolvdb-sql`: SQL layer: Parser, AST, Validator
+- `evolvdb-planner`: Logical planner (Binder/Analyzer), logical plan nodes, rule framework
 - `evolvdb-core`: `Database` facade (composition root)
 - `evolvdb-cli`: minimal CLI entrypoint for demos
 
 Planned modules:
-- `evolvdb-planner`: binder/analyzer, logical plans, rule framework
 - `evolvdb-exec`: physical planner, Volcano operators, expression eval
 - `evolvdb-index-btree`: B+Tree index and IndexScan
 - `evolvdb-txn`: transactions and locks (2PL baseline)
@@ -181,16 +181,15 @@ See the `docs/` folder. Start here:
 - Docs: `docs/sql/parser.md` (to be added)
 - README snippet: `- M8: SQL Parser & AST — Minimal grammar for CREATE/INSERT/SELECT; typed AST; docs: docs/sql/parser.md`
 
-### M9 — Logical Planner & Analyzer
-- HLD: AST→logical plan; binder resolves names via Catalog; schema/type propagation; simple rewrites.
+### M9 — Logical Planner & Analyzer (Completed)
+- HLD: AST→logical plan; binder resolves names via Catalog; schema/type propagation; joins; aggregates; simple rewrites.
 - LLD / Modules: `evolvdb-planner` (deps: sql, catalog, types)
-  - `...planner.bind.Binder`, logical nodes `LogicalScan/Project/Filter/Join/Aggregate/Insert`
-  - Rules: `Rule`, `RuleEngine`; Type inference
+  - `...planner.analyzer.Binder`, logical nodes `LogicalScan/Project/Filter/Join/Aggregate/Insert`
+  - Rules: `Rule`, `RuleEngine`; `PredicateSimplification`
   - Patterns: Visitor (plans), Strategy (rules)
-- APIs: `Planner.plan(Statement, CatalogManager) -> LogicalPlan`, `RuleEngine.apply(LogicalPlan)`
-- Tests: `givenSelectWhere_whenPlan_thenFilterOverScan()`, `givenUnknownColumn_whenBind_thenError()`
-- Docs: `docs/planner/logical-plans.md` (to be added)
-- README snippet: `- M9: Logical Planner — AST→logical plan with binder, type-check; docs: docs/planner/logical-plans.md`
+- APIs: `Analyzer.analyze(Statement, CatalogManager, List<Rule>) -> LogicalPlan`, `RuleEngine.apply(LogicalPlan)`
+- Tests: binder positive/negative (including ambiguous columns), join building, aggregates and group-by.
+- Docs: `docs/planner/logical-plans.md`
 
 ### M10 — Physical Planning & Execution (Volcano)
 - HLD: Volcano iterators; operators: SeqScan, Filter, Project, NestedLoopJoin, Aggregate (hash later).

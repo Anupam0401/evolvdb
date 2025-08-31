@@ -10,5 +10,6 @@ include(
     "evolvdb-catalog",
     "evolvdb-core",
     "evolvdb-cli",
-    "evolvdb-sql"
+    "evolvdb-sql",
+    "evolvdb-planner"
 )

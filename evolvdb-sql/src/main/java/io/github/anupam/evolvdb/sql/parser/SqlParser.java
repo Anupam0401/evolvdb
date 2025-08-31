@@ -1,7 +1,6 @@
 package io.github.anupam.evolvdb.sql.parser;
 
 import io.github.anupam.evolvdb.sql.ast.AstNode;
-import io.github.anupam.evolvdb.sql.ast.AstVisitor;
 import io.github.anupam.evolvdb.sql.ast.BinaryExpr;
 import io.github.anupam.evolvdb.sql.ast.ColumnDef;
 import io.github.anupam.evolvdb.sql.ast.ColumnRef;
@@ -119,10 +118,20 @@ public final class SqlParser {
             while (match(TokenType.COMMA)) items.add(parseSelectItem());
         }
         expect(TokenType.FROM, "FROM");
-        TableRef from = parseTableRef();
+        java.util.List<TableRef> froms = new java.util.ArrayList<>();
+        froms.add(parseTableRef());
+        while (match(TokenType.COMMA)) froms.add(parseTableRef());
         Expr where = null;
         if (match(TokenType.WHERE)) where = parseExpr();
-        return new Select(pos, items, from, where);
+        java.util.List<Expr> groupBy = java.util.List.of();
+        if (match(TokenType.GROUP)) {
+            expect(TokenType.BY, "BY");
+            java.util.List<Expr> groups = new java.util.ArrayList<>();
+            groups.add(parseExpr());
+            while (match(TokenType.COMMA)) groups.add(parseExpr());
+            groupBy = groups;
+        }
+        return new Select(pos, items, froms, where, groupBy);
     }
 
     private SelectItem parseSelectItem() {
@@ -209,6 +218,20 @@ public final class SqlParser {
                 if (match(TokenType.DOT)) {
                     String col = expectIdent("column");
                     return new ColumnRef(pos, first, col);
+                }
+                if (cur.type() == TokenType.LPAREN) {
+                    // function call
+                    advance(); // consume '('
+                    java.util.List<Expr> args = new java.util.ArrayList<>();
+                    boolean starArg = false;
+                    if (match(TokenType.STAR)) {
+                        starArg = true;
+                    } else if (cur.type() != TokenType.RPAREN) {
+                        args.add(parseExpr());
+                        while (match(TokenType.COMMA)) args.add(parseExpr());
+                    }
+                    expect(TokenType.RPAREN, ")");
+                    return new io.github.anupam.evolvdb.sql.ast.FuncCall(pos, first, args, starArg);
                 }
                 return new ColumnRef(pos, null, first);
             }
