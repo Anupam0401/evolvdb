@@ -22,7 +22,7 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
 - M9: Logical Planner & Analyzer — AST→logical plan with binder, type-check; docs: `docs/planner/logical-plans.md`
 
 ### 🚧 In Progress
-- —
+- M10: Physical Planner & Execution (Volcano) — Physical operators, iterator engine. Docs: `docs/execution/physical-plans.md`
 
 ### 📌 Roadmap (Upcoming)
 - M10: Physical Planning & Execution (Volcano) — Physical operators, iterator engine.
@@ -109,11 +109,11 @@ flowchart LR
 - `evolvdb-catalog`: persistent catalog manager (`TableId`, `TableMeta`, `CatalogManager`, codec)
 - `evolvdb-sql`: SQL layer: Parser, AST, Validator
 - `evolvdb-planner`: Logical planner (Binder/Analyzer), logical plan nodes, rule framework
+- `evolvdb-exec`: physical planner, Volcano operators, expression eval
 - `evolvdb-core`: `Database` facade (composition root)
 - `evolvdb-cli`: minimal CLI entrypoint for demos
 
 Planned modules:
-- `evolvdb-exec`: physical planner, Volcano operators, expression eval
 - `evolvdb-index-btree`: B+Tree index and IndexScan
 - `evolvdb-txn`: transactions and locks (2PL baseline)
 - `evolvdb-wal`: write-ahead logging and recovery
@@ -192,20 +192,20 @@ See the `docs/` folder. Start here:
 - Docs: `docs/planner/logical-plans.md`
 
 ### M10 — Physical Planning & Execution (Volcano)
-- HLD: Volcano iterators; operators: SeqScan, Filter, Project, NestedLoopJoin, Aggregate (hash later).
-- LLD / Modules: `evolvdb-exec` (deps: planner, catalog, types, storage-record)
-  - `...exec.Operator` (open/next/close), `SeqScanOp`, `FilterOp`, `ProjectOp`, `NestedLoopJoinOp`
+- HLD: Volcano iterators; operators: SeqScan, Filter, Project, NestedLoopJoin, Aggregate.
+- LLD / Modules: `evolvdb-exec` (deps: planner, catalog, types)
+  - `...exec.op.PhysicalOperator` (open/next/close), `SeqScanExec`, `FilterExec`, `ProjectExec`, `NestedLoopJoinExec`, `AggregateExec`
   - `...exec.expr.ExprEvaluator`, `...exec.PhysicalPlanner`
   - Patterns: Template (operator lifecycle), Factory (ops), Strategy (expr eval)
-- APIs: `PhysicalPlanner.plan(LogicalPlan) -> Operator`
-- Tests: `givenSeqScan_whenOpenNextClose_thenYieldsAllTuples()`, IT: `givenSelectWhere_whenExecute_thenRowsMatch()`
-- Docs: `docs/execution/volcano.md` (to be added)
+- APIs: `PhysicalPlanner.plan(LogicalPlan, ExecContext) -> PhysicalOperator`
+- Tests: end-to-end `select_filter_executes` in `evolvdb-exec`.
+- Docs: `docs/execution/physical-plans.md`
 - Mermaid:
 ```mermaid
 graph LR
   SeqScan --> Filter --> Project --> Sink
 ```
-- README snippet: `- M10: Execution (Volcano) — Physical operators and iterator engine; docs: docs/execution/volcano.md`
+- README snippet: `- M10: Execution (Volcano) — Physical operators and iterator engine; docs: docs/execution/physical-plans.md`
 
 ### M11 — Simple Query Optimizer
 - HLD: Rule-based pushdowns (predicate/projection), simple join heuristics.
