@@ -33,8 +33,8 @@ public final class PhysicalPlanner {
             PhysicalOperator c = plan(a.child(), ctx);
             return new AggregateExec(c, a.groupBy(), a.aggregates(), a.schema());
         }
-        if (logical instanceof LogicalInsert) {
-            throw new UnsupportedOperationException("INSERT execution not implemented in exec yet");
+        if (logical instanceof LogicalInsert i) {
+            return new InsertExec(ctx.catalog(), i);
         }
         throw new IllegalArgumentException("Unsupported logical node: " + logical.getClass().getSimpleName());
     }

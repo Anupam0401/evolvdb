@@ -129,6 +129,12 @@ public final class ExprEvaluator {
     }
 
     private static Object evalBinary(BinaryExpr.Op op, Object l, Object r) {
+        // Handle CONCAT specially - it always produces a string
+        if (op == BinaryExpr.Op.CONCAT) {
+            return toStringLike(l) + toStringLike(r);
+        }
+        
+        // Numeric operations
         if (l instanceof Float || r instanceof Float) {
             float lf = toFloat(l);
             float rf = toFloat(r);
@@ -137,7 +143,7 @@ public final class ExprEvaluator {
                 case SUB -> lf - rf;
                 case MUL -> lf * rf;
                 case DIV -> lf / rf;
-                case CONCAT -> (toStringLike(l) + toStringLike(r));
+                case CONCAT -> throw new IllegalStateException("unreachable");
             };
         }
         if (l instanceof Long || r instanceof Long) {
@@ -148,7 +154,7 @@ public final class ExprEvaluator {
                 case SUB -> ll - rl;
                 case MUL -> ll * rl;
                 case DIV -> ll / rl;
-                case CONCAT -> (toStringLike(l) + toStringLike(r));
+                case CONCAT -> throw new IllegalStateException("unreachable");
             };
         }
         if (l instanceof Integer || r instanceof Integer) {
@@ -159,13 +165,10 @@ public final class ExprEvaluator {
                 case SUB -> li - ri;
                 case MUL -> li * ri;
                 case DIV -> li / ri;
-                case CONCAT -> (toStringLike(l) + toStringLike(r));
+                case CONCAT -> throw new IllegalStateException("unreachable");
             };
         }
-        return switch (op) {
-            case CONCAT -> (toStringLike(l) + toStringLike(r));
-            default -> throw new IllegalArgumentException("Unsupported binary types: " + l + ", " + r);
-        };
+        throw new IllegalArgumentException("Unsupported binary types: " + l + ", " + r);
     }
 
     private static Object evalComparison(ComparisonExpr.Op op, Object l, Object r) {

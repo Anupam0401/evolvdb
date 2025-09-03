@@ -20,13 +20,12 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
 - M7: Tuple & RowCodec — Tuple bound to Schema; RowCodec for fixed/var width; `Table` wrapper over HeapFile. Docs: `docs/tuple/tuple.md`
 - M8: SQL Parser & AST — Minimal grammar for CREATE/INSERT/SELECT; typed AST; validator integrated with Catalog. Docs: `docs/sql/parser.md`
 - M9: Logical Planner & Analyzer — AST→logical plan with binder, type-check; docs: `docs/planner/logical-plans.md`
-
-### 🚧 In Progress
 - M10: Physical Planner & Execution (Volcano) — Physical operators, iterator engine. Docs: `docs/execution/physical-plans.md`
 
+### 🚧 In Progress
+- **M11**: Query Optimizer - predicate pushdown, join ordering, cost-based decisions
+
 ### 📌 Roadmap (Upcoming)
-- M10: Physical Planning & Execution (Volcano) — Physical operators, iterator engine.
-- M11: Simple Query Optimizer — advanced rule optimizations (constant folding, projection pruning), predicate reordering, simple join heuristics.
 - M12: Indexing (B+Tree) — Secondary indexes + IndexScan.
 - M13: Transactions & Concurrency (2PL baseline) — Txn + Lock managers.
 - M14: Durability & Recovery (WAL) — WAL, checkpoints, crash recovery.

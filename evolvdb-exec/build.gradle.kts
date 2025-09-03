@@ -7,6 +7,7 @@ dependencies {
     implementation(project(":evolvdb-catalog"))
     implementation(project(":evolvdb-sql"))
     implementation(project(":evolvdb-planner"))
+    implementation(project(":evolvdb-storage-page"))  // For RecordId
 
     testImplementation(project(":evolvdb-core"))
 }

@@ -99,7 +99,10 @@ public final class AggregateExec implements PhysicalOperator {
 
         Object evalAgg(int idx, FuncCall fc) {
             AggState s = aggs.get(idx);
-            if (s == null) s = createAgg(fc);
+            if (s == null) {
+                s = createAgg(fc);
+                aggs.put(idx, s);
+            }
             return s.result();
         }
 
