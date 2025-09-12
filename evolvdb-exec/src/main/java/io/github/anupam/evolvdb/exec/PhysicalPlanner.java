@@ -2,15 +2,23 @@ package io.github.anupam.evolvdb.exec;
 
 import io.github.anupam.evolvdb.exec.op.*;
 import io.github.anupam.evolvdb.planner.logical.*;
+import io.github.anupam.evolvdb.exec.plan.PhysicalPlan;
+import io.github.anupam.evolvdb.optimizer.*;
 
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
+import java.util.List;
 
 /** Lowers a logical plan into a tree of Volcano operators. */
 public final class PhysicalPlanner {
 
     public PhysicalOperator plan(LogicalPlan logical, ExecContext ctx) {
+        if (ctx.useOptimizer()) {
+            VolcanoOptimizer opt = new VolcanoOptimizer(new DefaultCostModel(), defaultRules());
+            PhysicalPlan best = opt.optimize(logical, ctx);
+            return best.create(ctx);
+        }
         if (logical instanceof LogicalScan s) {
             return new SeqScanExec(ctx.catalog(), s.tableName());
         }
@@ -37,6 +45,17 @@ public final class PhysicalPlanner {
             return new InsertExec(ctx.catalog(), i);
         }
         throw new IllegalArgumentException("Unsupported logical node: " + logical.getClass().getSimpleName());
+    }
+
+    private List<PhysicalRule> defaultRules() {
+        return List.of(
+                new Rules.ScanRule(),
+                new Rules.FilterRule(),
+                new Rules.ProjectRule(),
+                new Rules.JoinRule(),
+                new Rules.AggregateRule(),
+                new Rules.InsertRule()
+        );
     }
 
     private Set<String> collectQualifiers(LogicalPlan plan) {
