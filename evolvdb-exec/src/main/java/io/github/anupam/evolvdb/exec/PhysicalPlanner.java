@@ -15,7 +15,7 @@ public final class PhysicalPlanner {
 
     public PhysicalOperator plan(LogicalPlan logical, ExecContext ctx) {
         if (ctx.useOptimizer()) {
-            VolcanoOptimizer opt = new VolcanoOptimizer(new DefaultCostModel(), defaultRules());
+            VolcanoOptimizer opt = new VolcanoOptimizer(new DefaultCostModel(ctx.stats()), defaultRules());
             PhysicalPlan best = opt.optimize(logical, ctx);
             return best.create(ctx);
         }

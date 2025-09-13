@@ -3,6 +3,7 @@ package io.github.anupam.evolvdb.optimizer;
 import io.github.anupam.evolvdb.exec.ExecContext;
 import io.github.anupam.evolvdb.exec.plan.*;
 import io.github.anupam.evolvdb.planner.logical.*;
+import io.github.anupam.evolvdb.sql.ast.*;
 
 import java.util.*;
 
@@ -60,8 +61,13 @@ public final class Rules {
             Set<String> rq = collectQualifiers(j.right());
             List<PhysicalPlan> alts = new ArrayList<>();
             alts.add(new NestedLoopJoinPlan(l, r, j.condition(), j.schema(), lq, rq));
-            alts.add(new HashJoinPlan(l, r, j.condition(), j.schema()));
-            alts.add(new SortMergeJoinPlan(l, r, j.condition(), j.schema()));
+            // Only add hash/sort-merge for equi-joins: ColumnRef = ColumnRef
+            Expr cond = j.condition();
+            if (cond instanceof ComparisonExpr ce && ce.op() == ComparisonExpr.Op.EQ &&
+                    ce.left() instanceof ColumnRef && ce.right() instanceof ColumnRef) {
+                alts.add(new HashJoinPlan(l, r, ce.left(), ce.right(), j.schema(), lq, rq));
+                alts.add(new SortMergeJoinPlan(l, r, ce.left(), ce.right(), j.schema(), lq, rq));
+            }
             return alts;
         }
 

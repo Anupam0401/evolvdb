@@ -22,7 +22,7 @@ public class CostModelTest {
         Cost nlj = m.costNestedLoopJoin(scan, scan);
         Cost hj = m.costHashJoin(scan, scan);
         Cost smj = m.costSortMergeJoin(scan, scan);
-        assertTrue(nlj.total() < hj.total());
         assertTrue(hj.total() < smj.total());
+        assertTrue(smj.total() < nlj.total());
     }
 }

@@ -21,5 +21,7 @@ public final class LogicalScan implements LogicalPlan {
 
     @Override public Schema schema() { return schema; }
     @Override public List<LogicalPlan> children() { return List.of(); }
-    @Override public <R, C> R accept(LogicalPlanVisitor<R, C> visitor, C context) { return visitor.visitScan(this, context); }
+    @Override public <R, C> R accept(LogicalPlanVisitor<R, C> visitor, C context) {
+        return visitor.visitScan(this, context);
+    }
 }
