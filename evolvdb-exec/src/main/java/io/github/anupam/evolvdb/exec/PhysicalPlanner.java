@@ -4,6 +4,7 @@ import io.github.anupam.evolvdb.exec.op.*;
 import io.github.anupam.evolvdb.planner.logical.*;
 import io.github.anupam.evolvdb.exec.plan.PhysicalPlan;
 import io.github.anupam.evolvdb.optimizer.*;
+import io.github.anupam.evolvdb.optimizer.rewrite.LogicalRewriter;
 
 import java.util.HashSet;
 import java.util.Locale;
@@ -15,7 +16,9 @@ public final class PhysicalPlanner {
 
     public PhysicalOperator plan(LogicalPlan logical, ExecContext ctx) {
         if (ctx.useOptimizer()) {
-            VolcanoOptimizer opt = new VolcanoOptimizer(new DefaultCostModel(ctx.stats()), defaultRules());
+            // Pre-optimization logical rewrites (predicate pushdown, projection pruning, join reordering)
+            logical = new LogicalRewriter(ctx.stats()).rewrite(logical);
+            VolcanoOptimizer opt = new VolcanoOptimizer(new DefaultCostModel(ctx.stats()), defaultRules(), ctx.useMemo());
             PhysicalPlan best = opt.optimize(logical, ctx);
             return best.create(ctx);
         }

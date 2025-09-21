@@ -47,7 +47,7 @@ public final class HashJoinExec implements PhysicalOperator {
         right.open();
         // Build hash on right
         for (Tuple t = right.next(); t != null; t = right.next()) {
-            Object k = evaluator.eval(rightKey, null, null, t, right.schema(), leftQuals, rightQuals);
+            Object k = evaluator.eval(rightKey, t, right.schema());
             hash.computeIfAbsent(k, kk -> new ArrayList<>()).add(t);
         }
         right.close();
@@ -58,14 +58,19 @@ public final class HashJoinExec implements PhysicalOperator {
     @Override
     public Tuple next() throws Exception {
         while (curLeft != null) {
-            if (matchIter == null || !matchIter.hasNext()) {
-                Object lk = evaluator.eval(leftKey, curLeft, left.schema(), null, null, leftQuals, rightQuals);
-                List<Tuple> matches = hash.getOrDefault(lk, List.of());
-                matchIter = matches.iterator();
+            if (matchIter == null) {
+                Object lk = evaluator.eval(leftKey, curLeft, left.schema());
+                matchIter = hash.getOrDefault(lk, List.of()).iterator();
                 if (!matchIter.hasNext()) {
                     curLeft = left.next();
                     continue;
                 }
+            }
+            if (!matchIter.hasNext()) {
+                // Exhausted matches for current left row; advance left
+                curLeft = left.next();
+                matchIter = null;
+                continue;
             }
             Tuple r = matchIter.next();
             List<Object> vals = new ArrayList<>(left.schema().size() + right.schema().size());

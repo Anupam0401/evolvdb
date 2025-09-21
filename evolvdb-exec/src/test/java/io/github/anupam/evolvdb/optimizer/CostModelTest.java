@@ -1,17 +1,18 @@
 package io.github.anupam.evolvdb.optimizer;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.github.anupam.evolvdb.types.ColumnMeta;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Type;
+import java.util.List;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class CostModelTest {
     @Test
     void default_costs_ordering() {
         DefaultCostModel m = new DefaultCostModel();
-        Schema s = new Schema(java.util.List.of(new ColumnMeta("id", Type.INT, null)));
+        Schema s = new Schema(List.of(new ColumnMeta("id", Type.INT, null)));
         Cost scan = m.costSeqScan("t", s);
         Cost filtered = m.costFilter(scan);
         Cost projected = m.costProject(filtered);
