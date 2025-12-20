@@ -21,9 +21,10 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
 - M8: SQL Parser & AST — Minimal grammar for CREATE/INSERT/SELECT; typed AST; validator integrated with Catalog. Docs: `docs/sql/parser.md`
 - M9: Logical Planner & Analyzer — AST→logical plan with binder, type-check; docs: `docs/planner/logical-plans.md`
 - M10: Physical Planner & Execution (Volcano) — Physical operators, iterator engine. Docs: `docs/execution/physical-plans.md`
+- M11: Query Optimizer — Volcano-style optimizer with memo, cost model, join algorithms (NLJ/HashJoin/SortMergeJoin), predicate pushdown, projection pruning, join reordering. Docs: `docs/optimizer/volcano.md`
 
 ### 🚧 In Progress
-- **M11**: Query Optimizer - predicate pushdown, join ordering, cost-based decisions
+- None currently
 
 ### 📌 Roadmap (Upcoming)
 - M12: Indexing (B+Tree) — Secondary indexes + IndexScan.
@@ -87,16 +88,212 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
   - Transactions — 2PL or MVCC, Txn/Lock managers, isolation
   - Durability & Recovery — WAL, checkpoints, crash recovery
 
-Pipeline overview:
+## Architecture Overview
+
+### High-Level Architecture (End-to-End)
+
+```mermaid
+flowchart TB
+    subgraph Frontend["SQL Frontend"]
+        SQL[SQL Query] --> Parser[SQL Parser]
+        Parser --> AST[Abstract Syntax Tree]
+        AST --> Validator[AST Validator]
+    end
+    
+    subgraph Planning["Query Planning"]
+        Validator --> Binder[Binder/Analyzer]
+        Binder --> LogPlan[Logical Plan]
+        LogPlan --> Rewriter[Logical Rewriter]
+        Rewriter --> Optimizer[Volcano Optimizer]
+        Optimizer --> PhysPlan[Physical Plan]
+    end
+    
+    subgraph Execution["Query Execution"]
+        PhysPlan --> Operators[Physical Operators]
+        Operators --> Results[Result Tuples]
+    end
+    
+    subgraph Storage["Storage Engine"]
+        Operators --> Catalog[Catalog Manager]
+        Operators --> Table[Table/HeapFile]
+        Table --> Buffer[Buffer Pool]
+        Buffer --> Disk[Disk Manager]
+        Disk --> Files[Data Files]
+    end
+    
+    Binder -.-> Catalog
+    Validator -.-> Catalog
+    
+    style Frontend fill:#e1f5ff
+    style Planning fill:#fff4e1
+    style Execution fill:#e8f5e9
+    style Storage fill:#f3e5f5
+```
+
+### Component Pipeline
 
 ```mermaid
 flowchart LR
-  SQL --> P[Parser->AST] --> B[Binder/Validator] --> L[Logical Plan] --> Ph[Physical Plan] --> X[Execution]
-  X --> T[Table/HeapFile] --> BP[BufferPool] --> DM[Disk]
-  B --> C[Catalog]
+  SQL --> P[Parser] --> AST[AST] --> V[Validator] --> B[Binder] --> L[Logical Plan]
+  L --> RW[Rewriter] --> O[Optimizer] --> PP[Physical Plan] --> X[Volcano Execution]
+  X --> T[Table/HeapFile] --> BP[BufferPool] --> DM[DiskManager]
+  B -.-> C[Catalog]
+  V -.-> C
+```
+
+## Detailed Layer Architecture
+
+### Layer 1: Storage Foundation (M1-M5)
+
+```mermaid
+flowchart TB
+    subgraph Layer1["Storage Layer"]
+        DM[DiskManager<br/>NIO page I/O] --> BP[BufferPool<br/>LRU eviction, pin/unpin]
+        BP --> PF[PageFormat<br/>SlottedPageFormat]
+        PF --> HF[HeapFile<br/>Multi-page records]
+        HF --> RM[RecordManager<br/>File management]
+    end
+    
+    subgraph Concepts["Key Concepts"]
+        FileId[FileId: logical file name]
+        PageId[PageId: file + page number]
+        RecordId[RecordId: page + slot]
+    end
+    
+    DM -.-> FileId
+    BP -.-> PageId
+    PF -.-> RecordId
+    
+    style Layer1 fill:#f3e5f5
+```
+
+**Smallest Building Blocks:**
+- **FileId** (record): Logical name for a file (e.g., "users")
+- **PageId** (record): FileId + page number (0-based)
+- **RecordId** (record): PageId + slot index within page
+- **DiskManager**: Allocates pages, reads/writes raw bytes
+- **Page**: ByteBuffer wrapper with metadata
+- **SlottedPageFormat**: Variable-length record layout with slot directory
+
+### Layer 2: Type System & Catalog (M6-M7)
+
+```mermaid
+flowchart LR
+    subgraph Types["Type System"]
+        Type[Type enum:<br/>INT, BIGINT, VARCHAR,<br/>BOOLEAN, FLOAT, STRING]
+        ColumnMeta[ColumnMeta:<br/>name + type + length]
+        Schema[Schema:<br/>List of ColumnMeta]
+    end
+    
+    subgraph Tuple["Row Representation"]
+        T[Tuple:<br/>Schema + values]
+        RC[RowCodec:<br/>Binary encoding/decoding]
+    end
+    
+    subgraph Catalog["Metadata"]
+        TM[TableMeta:<br/>id, name, schema, fileId]
+        CM[CatalogManager:<br/>Persistent catalog]
+        Table[Table:<br/>HeapFile + Schema wrapper]
+    end
+    
+    Schema --> T
+    T --> RC
+    TM --> Schema
+    CM --> TM
+    Table --> TM
+    
+    style Types fill:#e1f5ff
+    style Tuple fill:#fff4e1
+    style Catalog fill:#e8f5e9
+```
+
+### Layer 3: SQL Parsing (M8)
+
+```mermaid
+flowchart TB
+    SQL[SQL String] --> Tokenizer[Tokenizer:<br/>Lexical analysis]
+    Tokenizer --> Parser[Recursive Descent Parser]
+    Parser --> AST[Abstract Syntax Tree]
+    
+    subgraph ASTNodes["AST Node Types"]
+        CreateTable[CreateTable]
+        DropTable[DropTable]
+        Insert[Insert]
+        Select[Select]
+        Expr[Expressions:<br/>Binary, Comparison,<br/>Logical, Literals]        
+    end
+    
+    AST --> Validator[AstValidator:<br/>Catalog-aware checks]
+    Validator -.-> Catalog[(Catalog)]
+    
+    style ASTNodes fill:#fff4e1
+```
+
+### Layer 4: Logical Planning (M9)
+
+```mermaid
+flowchart TB
+    AST[Validated AST] --> Binder[Binder]    
+    Binder -.-> Cat[(Catalog)]
+    
+    Binder --> LP[Logical Plan Tree]
+    
+    subgraph LogicalNodes["Logical Operators"]
+        LS[LogicalScan]        
+        LF[LogicalFilter]        
+        LP2[LogicalProject]        
+        LJ[LogicalJoin]        
+        LA[LogicalAggregate]        
+        LI[LogicalInsert]
+    end
+    
+    LP --> Rules[Rule Engine:<br/>PredicateSimplification,<br/>PushProjectBelowFilter]
+    
+    style LogicalNodes fill:#e8f5e9
+```
+
+### Layer 5: Physical Planning & Execution (M10-M11)
+
+```mermaid
+flowchart TB
+    LP[Logical Plan] --> LR[Logical Rewriter:<br/>Predicate pushdown,<br/>Projection pruning,<br/>Join reordering]
+    
+    LR --> VO[Volcano Optimizer]
+    
+    subgraph Optimizer["Volcano Optimizer Components"]
+        Memo[Memo:<br/>Group expressions,<br/>Join commutativity]
+        Cost[Cost Model:<br/>Row count, CPU, I/O]
+        Rules[Physical Rules:<br/>Scan, Filter, Project,<br/>Join alternatives]
+    end
+    
+    VO --> Memo
+    VO --> Cost
+    VO --> Rules
+    
+    VO --> PP[Best Physical Plan]
+    
+    PP --> Ops[Physical Operators]
+    
+    subgraph PhysicalOps["Volcano Operators"]
+        SeqScan[SeqScanExec]        
+        Filter[FilterExec]        
+        Project[ProjectExec]        
+        NLJ[NestedLoopJoinExec]        
+        HJ[HashJoinExec]        
+        SMJ[SortMergeJoinExec]        
+        Agg[AggregateExec]        
+        Ins[InsertExec]
+    end
+    
+    Ops --> PhysicalOps
+    
+    style Optimizer fill:#fff4e1
+    style PhysicalOps fill:#e8f5e9
 ```
 
 ## Module Overview
+
+### Implemented Modules
 
 - `evolvdb-common`: shared exceptions/utilities
 - `evolvdb-config`: `DbConfig` (page size, buffer pool size, data dir, ...)
@@ -108,11 +305,11 @@ flowchart LR
 - `evolvdb-catalog`: persistent catalog manager (`TableId`, `TableMeta`, `CatalogManager`, codec)
 - `evolvdb-sql`: SQL layer: Parser, AST, Validator
 - `evolvdb-planner`: Logical planner (Binder/Analyzer), logical plan nodes, rule framework
-- `evolvdb-exec`: physical planner, Volcano operators, expression eval
+- `evolvdb-exec`: physical planner, Volcano operators, expression eval, optimizer (Volcano, memo, cost model, rewrites)
 - `evolvdb-core`: `Database` facade (composition root)
 - `evolvdb-cli`: minimal CLI entrypoint for demos
 
-Planned modules:
+### Planned Modules
 - `evolvdb-index-btree`: B+Tree index and IndexScan
 - `evolvdb-txn`: transactions and locks (2PL baseline)
 - `evolvdb-wal`: write-ahead logging and recovery
@@ -168,6 +365,295 @@ See the `docs/` folder. Start here:
 - Catalog & Schema: `docs/catalog/catalog.md`
 - Tuple & RowCodec: `docs/tuple/tuple.md`
 
+## Low-Level Design Details
+
+### Storage Layer Data Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant HeapFile
+    participant BufferPool
+    participant DiskManager
+    participant PageFormat
+    
+    Client->>HeapFile: insert(record bytes)
+    HeapFile->>DiskManager: pageCount(fileId)
+    DiskManager-->>HeapFile: N pages
+    
+    loop Find page with space
+        HeapFile->>BufferPool: getPage(pageId, forUpdate=true)
+        BufferPool->>DiskManager: readPage (if not cached)
+        DiskManager-->>BufferPool: page bytes
+        BufferPool-->>HeapFile: Page
+        HeapFile->>PageFormat: freeSpace(page)
+        PageFormat-->>HeapFile: bytes available
+    end
+    
+    alt Space found
+        HeapFile->>PageFormat: insert(page, record)
+        PageFormat-->>HeapFile: RecordId(pageId, slot)
+        HeapFile->>BufferPool: unpin(pageId, dirty=true)
+    else No space in any page
+        HeapFile->>DiskManager: allocatePage(fileId)
+        DiskManager-->>HeapFile: new PageId
+        HeapFile->>BufferPool: getPage(newPageId, forUpdate=true)
+        BufferPool-->>HeapFile: Page
+        HeapFile->>PageFormat: init(page)
+        HeapFile->>PageFormat: insert(page, record)
+        PageFormat-->>HeapFile: RecordId
+        HeapFile->>BufferPool: unpin(newPageId, dirty=true)
+    end
+    
+    HeapFile-->>Client: RecordId
+```
+
+### Query Execution Flow (Volcano Model)
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant ProjectExec
+    participant FilterExec
+    participant SeqScanExec
+    participant Table
+    participant HeapFile
+    
+    Client->>ProjectExec: open()
+    ProjectExec->>FilterExec: open()
+    FilterExec->>SeqScanExec: open()
+    SeqScanExec->>Table: scanTuples()
+    Table->>HeapFile: scan()
+    
+    loop Until exhausted
+        Client->>ProjectExec: next()
+        loop Until match found
+            ProjectExec->>FilterExec: next()
+            FilterExec->>SeqScanExec: next()
+            SeqScanExec->>HeapFile: next tuple
+            HeapFile-->>SeqScanExec: Tuple
+            SeqScanExec-->>FilterExec: Tuple
+            FilterExec->>FilterExec: eval predicate
+            alt Predicate true
+                FilterExec-->>ProjectExec: Tuple
+            else Predicate false
+                Note over FilterExec: Continue to next
+            end
+        end
+        ProjectExec->>ProjectExec: eval projection exprs
+        ProjectExec-->>Client: Projected Tuple
+    end
+    
+    Client->>ProjectExec: close()
+    ProjectExec->>FilterExec: close()
+    FilterExec->>SeqScanExec: close()
+```
+
+### Optimizer Decision Flow
+
+```mermaid
+flowchart TB
+    Start[Logical Plan] --> LR[Logical Rewriter]
+    
+    subgraph LogicalOptimizations["Logical Optimizations"]
+        LR --> PP[Predicate Pushdown]
+        PP --> ProjPrune[Projection Pruning]
+        ProjPrune --> JR[Join Reordering]
+    end
+    
+    JR --> Opt[Volcano Optimizer]
+    
+    subgraph Memo["Memo Structure"]
+        Opt --> Groups[Build Groups]
+        Groups --> Equiv[Add Equivalent Expressions]
+        Equiv --> Commute[Join Commutativity]
+    end
+    
+    Commute --> BU[Bottom-Up Optimization]
+    
+    subgraph PerNode["Per Node"]
+        BU --> Rules[Apply Physical Rules]
+        Rules --> Alts[Generate Alternatives]
+        Alts --> Cost[Estimate Costs]
+        Cost --> Best[Pick Lowest Cost]
+    end
+    
+    Best --> Final[Best Physical Plan]
+    
+    subgraph Examples["Example: Join Alternatives"]
+        J1[NestedLoopJoin: O(n*m)]
+        J2[HashJoin: O(n+m)]
+        J3[SortMergeJoin: O(n log n + m log m)]
+    end
+    
+    Alts -.-> Examples
+    
+    style LogicalOptimizations fill:#fff4e1
+    style Memo fill:#e1f5ff
+    style PerNode fill:#e8f5e9
+```
+
+### Type System & Row Encoding
+
+```mermaid
+flowchart LR
+    subgraph TypeDef["Type Definitions"]
+        INT[INT: 4 bytes]
+        BIGINT[BIGINT: 8 bytes]
+        BOOL[BOOLEAN: 1 byte]
+        FLOAT[FLOAT: 4 bytes IEEE-754]
+        STR[STRING/VARCHAR: u16 len + UTF-8]
+    end
+    
+    subgraph Tuple["Tuple Construction"]
+        Schema[Schema:<br/>List&lt;ColumnMeta&gt;]
+        Values[Values:<br/>List&lt;Object&gt;]
+        Schema --> Validate[Type Validation]
+        Values --> Validate
+        Validate --> T[Tuple Instance]
+    end
+    
+    subgraph Encoding["Binary Encoding"]
+        T --> RC[RowCodec.encode]
+        RC --> Binary[Little-Endian Bytes]
+        Binary --> Store[Store in HeapFile]
+    end
+    
+    subgraph Decoding["Binary Decoding"]
+        Retrieve[Retrieve from HeapFile]
+        Retrieve --> Bytes[Byte Array]
+        Bytes --> Decode[RowCodec.decode]
+        Decode --> Schema2[Schema]
+        Decode --> T2[Tuple]
+    end
+    
+    style TypeDef fill:#e1f5ff
+    style Tuple fill:#fff4e1
+    style Encoding fill:#e8f5e9
+    style Decoding fill:#f3e5f5
+```
+
+## What's Actually Implemented vs Pending
+
+### ✅ Fully Implemented (M1-M11)
+
+**Storage Foundation:**
+- ✅ DiskManager with NIO-based page I/O
+- ✅ BufferPool with LRU eviction and pin/unpin semantics
+- ✅ SlottedPageFormat with variable-length records
+- ✅ HeapFile multi-page record management
+- ✅ Scan and in-place/relocate update operations
+
+**Type System & Catalog:**
+- ✅ Type system: INT, BIGINT, BOOLEAN, FLOAT, VARCHAR, STRING
+- ✅ Schema with unique column names (case-insensitive)
+- ✅ Tuple with type validation
+- ✅ RowCodec binary encoding/decoding
+- ✅ CatalogManager with persistent metadata
+- ✅ Table abstraction over HeapFile
+
+**SQL & Planning:**
+- ✅ SQL Parser with CREATE TABLE, DROP TABLE, INSERT, SELECT
+- ✅ AST with expressions (arithmetic, comparison, logical)
+- ✅ AstValidator with catalog-aware checks
+- ✅ Binder/Analyzer with name resolution
+- ✅ Logical plan nodes (Scan, Filter, Project, Join, Aggregate, Insert)
+- ✅ Rule engine for logical plan transformations
+
+**Optimizer & Execution:**
+- ✅ Volcano-style optimizer with memo structure
+- ✅ Cost model with row count, CPU, I/O estimates
+- ✅ Predicate pushdown across joins
+- ✅ Projection pruning
+- ✅ Join reordering (bushy plans via memo)
+- ✅ Physical operators: SeqScan, Filter, Project
+- ✅ **HashJoinExec** - fully implemented in-memory hash join
+- ✅ **SortMergeJoinExec** - fully implemented sort-merge join
+- ✅ **NestedLoopJoinExec** - baseline join algorithm
+- ✅ **AggregateExec** - GROUP BY with COUNT/SUM/AVG/MIN/MAX
+- ✅ **InsertExec** - insert rows into tables
+- ✅ Expression evaluator for runtime evaluation
+
+### ❌ Not Yet Implemented (M12-M15+)
+
+**Indexing (M12):**
+- ❌ B+Tree on-disk structure
+- ❌ Index page layout (internal nodes, leaf nodes)
+- ❌ Index cursor for range scans
+- ❌ IndexMeta in catalog
+- ❌ IndexScan physical operator
+- ❌ Index-aware optimizer rules
+- ❌ Multi-column indexes
+- ❌ CREATE INDEX / DROP INDEX SQL support
+
+**Transactions & Concurrency (M13):**
+- ❌ TransactionManager with begin/commit/abort
+- ❌ Transaction context threaded through operators
+- ❌ LockManager with 2PL (Strict Two-Phase Locking)
+- ❌ Lock table by RecordId/PageId
+- ❌ Deadlock detection/prevention
+- ❌ Isolation levels (READ COMMITTED, REPEATABLE READ)
+- ❌ MVCC as alternative to 2PL
+- ❌ Transaction ID in tuple headers
+
+**Durability & Recovery (M14):**
+- ❌ Write-Ahead Log (WAL) structure
+- ❌ Log records (INSERT, UPDATE, DELETE, BEGIN, COMMIT, ABORT)
+- ❌ LSN (Log Sequence Number) in pages
+- ❌ LogManager with append and flush
+- ❌ Checkpoint mechanism
+- ❌ RecoveryManager with ARIES-style recovery
+- ❌ Redo phase (replay committed changes)
+- ❌ Undo phase (rollback uncommitted changes)
+- ❌ Analyze phase (build active/dirty tables)
+
+**Advanced Features (M15+):**
+- ❌ Parallel query execution
+- ❌ Columnar storage format
+- ❌ Statistics collection and histogram
+- ❌ Cardinality estimation with real stats
+- ❌ Advanced cost-based optimization
+- ❌ Materialized views
+- ❌ Query result caching
+- ❌ Stored procedures
+- ❌ Triggers
+
+**SQL Feature Gaps:**
+- ❌ ANSI JOIN syntax (JOIN...ON instead of comma-separated FROM)
+- ❌ OUTER JOIN (LEFT, RIGHT, FULL)
+- ❌ HAVING clause for aggregates
+- ❌ ORDER BY clause
+- ❌ LIMIT/OFFSET
+- ❌ Subqueries (correlated and uncorrelated)
+- ❌ UNION/INTERSECT/EXCEPT
+- ❌ DISTINCT
+- ❌ Window functions
+- ❌ Common Table Expressions (WITH)
+- ❌ NULL value support
+- ❌ DEFAULT values for columns
+- ❌ CHECK constraints
+- ❌ FOREIGN KEY constraints
+- ❌ UPDATE and DELETE statements
+
+**Type System Gaps:**
+- ❌ NULL support in Tuple and RowCodec
+- ❌ DECIMAL/NUMERIC for precise arithmetic
+- ❌ DATE, TIME, TIMESTAMP types
+- ❌ BLOB/BYTEA for binary data
+- ❌ ARRAY types
+- ❌ JSON type
+- ❌ User-defined types
+
+**Storage Engine Enhancements:**
+- ❌ Free-space map for efficient insert
+- ❌ Background compaction
+- ❌ Page compression
+- ❌ Extent-based allocation
+- ❌ Alternative eviction policies (CLOCK, 2Q)
+- ❌ Async I/O
+- ❌ Prefetching
+- ❌ Per-page latches (currently coarse-grained synchronization)
+
 ## Detailed Roadmap (M8–M15)
 
 ### M8 — SQL Parser & AST
@@ -206,15 +692,22 @@ graph LR
 ```
 - README snippet: `- M10: Execution (Volcano) — Physical operators and iterator engine; docs: docs/execution/physical-plans.md`
 
-### M11 — Simple Query Optimizer
-- HLD: Rule-based pushdowns (predicate/projection), simple join heuristics.
-- LLD / Modules: extend `evolvdb-planner`
-  - Rules: `PushdownPredicatesRule`, `PushdownProjectionsRule`, `JoinHeuristicRule`
-  - `...planner.cost.CostModel` skeleton
-- APIs: `Optimizer.optimize(LogicalPlan, CatalogStats) -> LogicalPlan`
-- Tests: `givenFilterOverJoin_whenOptimize_thenPredicatePushed()`, `givenWideSelect_whenOptimize_thenProjectionPushed()`
-- Docs: `docs/planner/optimizer.md` (to be added)
-- README snippet: `- M11: Optimizer — Pushdowns and join heuristics; docs: docs/planner/optimizer.md`
+### M11 — Query Optimizer (Completed)
+- HLD: Volcano-style optimizer with memo, cost model, physical rule-based search, join ordering.
+- LLD / Modules: `evolvdb-exec/optimizer`
+  - `VolcanoOptimizer`: bottom-up optimization with memo support
+  - `Memo`, `Group`, `GroupExpr`: group equivalent expressions, join commutativity
+  - `CostModel`, `DefaultCostModel`: row count, CPU, I/O estimates
+  - `PhysicalRule`, `Rules`: generate physical alternatives (Scan, Filter, Project, Join variants, Aggregate, Insert)
+  - `LogicalRewriter`: predicate pushdown, projection pruning, join reordering
+- Physical Join Algorithms:
+  - `NestedLoopJoinExec`: O(n*m) baseline
+  - `HashJoinExec`: O(n+m) hash-based equi-join
+  - `SortMergeJoinExec`: O(n log n + m log m) sort-merge equi-join
+- APIs: `VolcanoOptimizer.optimize(LogicalPlan, ExecContext) -> PhysicalPlan`
+- Tests: `OptimizerE2ETest`, `CostModelTest`, `JoinReorderingRuleTest`, `PredicatePushdownRuleTest`
+- Docs: `docs/optimizer/volcano.md`
+- Status: ✅ **COMPLETED** - All tests passing, HashJoin and SortMergeJoin fully functional
 
 ### M12 — Indexing (B+Tree)
 - HLD: B+Tree on-disk with cursor scans; Catalog `IndexMeta`; `IndexScan` op.

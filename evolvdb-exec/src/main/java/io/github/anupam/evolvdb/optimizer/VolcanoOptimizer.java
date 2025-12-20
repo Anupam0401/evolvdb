@@ -62,31 +62,34 @@ public final class VolcanoOptimizer {
 
     private PhysicalPlan optimizeGroup(Group g, ExecContext ctx) {
         if (g.best() != null) return g.best();
-        // Optimize children first
-        List<LogicalPlan> lchildren = g.logical().children();
-        PhysicalPlan[] optimizedChildren = new PhysicalPlan[lchildren.size()];
-        for (int i = 0; i < lchildren.size(); i++) {
-            Group cg = memo.intern(lchildren.get(i));
-            optimizedChildren[i] = optimizeGroup(cg, ctx);
-        }
-        PhysicalPlan best = null;
-        Cost bestCost = Cost.INFINITE;
-        for (PhysicalRule r : rules) {
-            if (r.matches(g.logical())) {
-                List<PhysicalPlan> alts = r.apply(g.logical(), Arrays.asList(optimizedChildren), ctx);
-                for (PhysicalPlan alt : alts) {
-                    Cost c = alt.estimate(costModel);
-                    int cmp = c.compareTo(bestCost);
-                    if (cmp < 0 || (cmp == 0 && betterTieBreak(alt, best))) {
-                        best = alt; bestCost = c;
+        PhysicalPlan globalBest = null;
+        Cost globalBestCost = Cost.INFINITE;
+        // Explore each group expression in stable insertion order
+        for (var ge : g.expressions()) {
+            // Optimize children first for this expression
+            var childGroups = ge.children();
+            PhysicalPlan[] optimizedChildren = new PhysicalPlan[childGroups.size()];
+            for (int i = 0; i < childGroups.size(); i++) {
+                optimizedChildren[i] = optimizeGroup(childGroups.get(i), ctx);
+            }
+            // Apply rules that match this expression's logical node
+            for (PhysicalRule r : rules) {
+                if (r.matches(ge.logical())) {
+                    List<PhysicalPlan> alts = r.apply(ge.logical(), Arrays.asList(optimizedChildren), ctx);
+                    for (PhysicalPlan alt : alts) {
+                        Cost c = alt.estimate(costModel);
+                        int cmp = c.compareTo(globalBestCost);
+                        if (cmp < 0 || (cmp == 0 && betterTieBreak(alt, globalBest))) {
+                            globalBest = alt; globalBestCost = c;
+                        }
                     }
                 }
             }
         }
-        if (best == null) throw new IllegalArgumentException("No physical alternatives produced for " + g.logical().getClass().getSimpleName());
-        g.best(best);
-        g.bestCost(bestCost);
-        return best;
+        if (globalBest == null) throw new IllegalArgumentException("No physical alternatives produced for " + g.logical().getClass().getSimpleName());
+        g.best(globalBest);
+        g.bestCost(globalBestCost);
+        return globalBest;
     }
 
     private boolean betterTieBreak(PhysicalPlan cand, PhysicalPlan curBest) {
