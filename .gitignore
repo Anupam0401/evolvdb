@@ -40,3 +40,10 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Windsurf ###
+.windsurfrules
+.windsurfrules.json
+.windsurfignore
+.windsurfrules.md
+./.windsurf
