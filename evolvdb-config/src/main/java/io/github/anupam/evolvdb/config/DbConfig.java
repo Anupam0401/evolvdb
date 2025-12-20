@@ -4,8 +4,8 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /**
- * Database configuration. Immutable, built via Builder.
- * Keep this minimal for v0 and evolve as subsystems are added.
+ * Database configuration. Immutable, built via Builder. Keep this minimal for v0 and evolve as
+ * subsystems are added.
  */
 public final class DbConfig {
     private final int pageSize;
@@ -18,20 +18,33 @@ public final class DbConfig {
         this.bufferPoolPages = b.bufferPoolPages;
     }
 
-    public int pageSize() { return pageSize; }
-    public Path dataDir() { return dataDir; }
-    public int bufferPoolPages() { return bufferPoolPages; }
+    public int pageSize() {
+        return pageSize;
+    }
+
+    public Path dataDir() {
+        return dataDir;
+    }
+
+    public int bufferPoolPages() {
+        return bufferPoolPages;
+    }
 
     @Override
     public String toString() {
-        return "DbConfig{" +
-                "pageSize=" + pageSize +
-                ", dataDir=" + dataDir +
-                ", bufferPoolPages=" + bufferPoolPages +
-                '}';
+        return "DbConfig{"
+                + "pageSize="
+                + pageSize
+                + ", dataDir="
+                + dataDir
+                + ", bufferPoolPages="
+                + bufferPoolPages
+                + '}';
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
     public static final class Builder {
         private int pageSize = 4096;
@@ -40,15 +53,24 @@ public final class DbConfig {
 
         public Builder pageSize(int pageSize) {
             if (pageSize <= 0) throw new IllegalArgumentException("pageSize must be > 0");
-            this.pageSize = pageSize; return this;
+            this.pageSize = pageSize;
+            return this;
         }
+
         public Builder dataDir(Path dataDir) {
-            this.dataDir = Objects.requireNonNull(dataDir, "dataDir"); return this;
+            this.dataDir = Objects.requireNonNull(dataDir, "dataDir");
+            return this;
         }
+
         public Builder bufferPoolPages(int bufferPoolPages) {
-            if (bufferPoolPages <= 0) throw new IllegalArgumentException("bufferPoolPages must be > 0");
-            this.bufferPoolPages = bufferPoolPages; return this;
+            if (bufferPoolPages <= 0)
+                throw new IllegalArgumentException("bufferPoolPages must be > 0");
+            this.bufferPoolPages = bufferPoolPages;
+            return this;
         }
-        public DbConfig build() { return new DbConfig(this); }
+
+        public DbConfig build() {
+            return new DbConfig(this);
+        }
     }
 }

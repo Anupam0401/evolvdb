@@ -1,5 +1,7 @@
 package io.github.anupam.evolvdb.exec.plan;
 
+import java.util.List;
+
 import io.github.anupam.evolvdb.exec.ExecContext;
 import io.github.anupam.evolvdb.exec.op.DeleteExec;
 import io.github.anupam.evolvdb.exec.op.PhysicalOperator;
@@ -9,8 +11,6 @@ import io.github.anupam.evolvdb.planner.logical.LogicalDelete;
 import io.github.anupam.evolvdb.types.ColumnMeta;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Type;
-
-import java.util.List;
 
 public final class DeletePlan implements PhysicalPlan {
     private final PhysicalPlan child;
@@ -27,7 +27,9 @@ public final class DeletePlan implements PhysicalPlan {
     }
 
     @Override
-    public List<PhysicalPlan> children() { return List.of(child); }
+    public List<PhysicalPlan> children() {
+        return List.of(child);
+    }
 
     @Override
     public PhysicalOperator create(ExecContext context) {

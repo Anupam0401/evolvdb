@@ -5,26 +5,22 @@ import java.nio.ByteOrder;
 import java.util.Optional;
 
 /**
- * Slotted page layout.
- * Header (little-endian, binary):
- *  - int pageType (1 for heap)
- *  - int lsn
- *  - short slotCount
- *  - short freeStartOffset
- * Slots grow from the end of the page backward; payload grows from header forward.
- * Each slot entry: short offset, short len (len < 0 indicates tombstone/deleted).
+ * Slotted page layout. Header (little-endian, binary): - int pageType (1 for heap) - int lsn -
+ * short slotCount - short freeStartOffset Slots grow from the end of the page backward; payload
+ * grows from header forward. Each slot entry: short offset, short len (len < 0 indicates
+ * tombstone/deleted).
  *
- * This class implements insert/read/delete, free space tracking, and compaction on demand.
+ * <p>This class implements insert/read/delete, free space tracking, and compaction on demand.
  */
 public final class SlottedPageFormat implements PageFormat {
     public static final int PAGE_TYPE_HEAP = 1;
 
-    private static final int OFF_TYPE = 0;          // int
-    private static final int OFF_LSN = 4;           // int
-    private static final int OFF_SLOT_COUNT = 8;    // short
-    private static final int OFF_FREE_START = 10;   // short
+    private static final int OFF_TYPE = 0; // int
+    private static final int OFF_LSN = 4; // int
+    private static final int OFF_SLOT_COUNT = 8; // short
+    private static final int OFF_FREE_START = 10; // short
     private static final int HEADER_SIZE = 12;
-    private static final int SLOT_ENTRY_SIZE = 4;   // short offset, short len
+    private static final int SLOT_ENTRY_SIZE = 4; // short offset, short len
 
     @Override
     public void init(Page page) {
@@ -64,7 +60,8 @@ public final class SlottedPageFormat implements PageFormat {
             freeStart = Short.toUnsignedInt(buf.getShort(OFF_FREE_START));
             slotDirStart = cap - slotCount * SLOT_ENTRY_SIZE;
             if ((slotDirStart - freeStart) < need) {
-                throw new IllegalStateException("Insufficient space for record of " + record.length + " bytes");
+                throw new IllegalStateException(
+                        "Insufficient space for record of " + record.length + " bytes");
             }
         }
 
@@ -174,7 +171,8 @@ public final class SlottedPageFormat implements PageFormat {
             return true;
         }
 
-        // Try to grow in place only if this record is at the end of payload region and there is contiguous free space
+        // Try to grow in place only if this record is at the end of payload region and there is
+        // contiguous free space
         int freeStart = Short.toUnsignedInt(buf.getShort(OFF_FREE_START));
         int slotDirStart = cap - slotCount * SLOT_ENTRY_SIZE;
         int extra = newLen - currLen;
@@ -194,7 +192,10 @@ public final class SlottedPageFormat implements PageFormat {
         return false;
     }
 
-    /** Packs live records from slots into a contiguous area starting at HEADER_SIZE; updates offsets and freeStart. */
+    /**
+     * Packs live records from slots into a contiguous area starting at HEADER_SIZE; updates offsets
+     * and freeStart.
+     */
     private void compactInPlace(ByteBuffer buf) {
         buf.order(ByteOrder.LITTLE_ENDIAN);
         int cap = buf.capacity();

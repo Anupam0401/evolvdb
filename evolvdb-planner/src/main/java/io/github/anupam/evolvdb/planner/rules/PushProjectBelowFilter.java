@@ -1,16 +1,15 @@
 package io.github.anupam.evolvdb.planner.rules;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import io.github.anupam.evolvdb.planner.logical.*;
 import io.github.anupam.evolvdb.sql.ast.*;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-
 /**
- * If Project(Filter(child)) and all project items are ColumnRef, and the filter predicate
- * only references columns preserved by project, push Project below Filter: Filter(Project(child)).
+ * If Project(Filter(child)) and all project items are ColumnRef, and the filter predicate only
+ * references columns preserved by project, push Project below Filter: Filter(Project(child)).
  */
 public final class PushProjectBelowFilter implements Rule {
     @Override
@@ -56,11 +55,14 @@ public final class PushProjectBelowFilter implements Rule {
         if (e instanceof ColumnRef cr) {
             out.add(cr.column().toLowerCase());
         } else if (e instanceof BinaryExpr be) {
-            collect(be.left(), out); collect(be.right(), out);
+            collect(be.left(), out);
+            collect(be.right(), out);
         } else if (e instanceof LogicalExpr le) {
-            collect(le.left(), out); if (le.right() != null) collect(le.right(), out);
+            collect(le.left(), out);
+            if (le.right() != null) collect(le.right(), out);
         } else if (e instanceof ComparisonExpr ce) {
-            collect(ce.left(), out); collect(ce.right(), out);
+            collect(ce.left(), out);
+            collect(ce.right(), out);
         }
     }
 }

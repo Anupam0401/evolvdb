@@ -1,12 +1,12 @@
 package io.github.anupam.evolvdb.exec.op;
 
+import java.io.IOException;
+import java.util.Iterator;
+
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.catalog.Table;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Tuple;
-
-import java.io.IOException;
-import java.util.Iterator;
 
 /** Sequential scan over a table. */
 public final class SeqScanExec implements PhysicalOperator {

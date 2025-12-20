@@ -1,4 +1,5 @@
 plugins {
+    id("com.diffplug.spotless") version "6.23.3" apply false
 }
 
 group = "io.github.anupam"
@@ -6,6 +7,7 @@ version = "1.0-SNAPSHOT"
 
 subprojects {
     plugins.apply("java")
+    plugins.apply("com.diffplug.spotless")
 
     repositories { 
         mavenCentral() 
@@ -28,5 +30,32 @@ subprojects {
 
     tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         useJUnitPlatform()
+    }
+
+    // Configure Spotless for code formatting
+    configure<com.diffplug.gradle.spotless.SpotlessExtension> {
+        java {
+            // Use Google Java Format
+            googleJavaFormat("1.19.1").aosp().reflowLongStrings()
+            
+            // Import order: java/javax, blank line, all other imports, blank line, static imports
+            importOrder("java", "javax", "", "\\#")
+            
+            // Remove unused imports
+            removeUnusedImports()
+            
+            // Trim trailing whitespace
+            trimTrailingWhitespace()
+            
+            // Ensure newline at end of file
+            endWithNewline()
+            
+            // Format all Java files
+            target("src/**/*.java")
+            targetExclude("build/**")
+            
+            // Toggle for javadoc formatting
+            formatAnnotations()
+        }
     }
 }

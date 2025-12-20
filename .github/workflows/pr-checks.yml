@@ -76,6 +76,9 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     
+    - name: Check code formatting
+      run: ./gradlew spotlessCheck --no-daemon
+    
     - name: Clean build
       run: ./gradlew clean build --no-daemon --stacktrace
     

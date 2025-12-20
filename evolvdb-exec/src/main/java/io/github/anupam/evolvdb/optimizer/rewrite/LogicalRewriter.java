@@ -1,7 +1,7 @@
 package io.github.anupam.evolvdb.optimizer.rewrite;
 
-import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 import io.github.anupam.evolvdb.optimizer.stats.StatsProvider;
+import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 
 /** Orchestrates a sequence of logical rewrite passes (fixpoint where needed). */
 public final class LogicalRewriter {
@@ -9,7 +9,10 @@ public final class LogicalRewriter {
     private final ProjectionPruningRule pruning = new ProjectionPruningRule();
     private final JoinReorderingRule reordering;
 
-    public LogicalRewriter() { this(null); }
+    public LogicalRewriter() {
+        this(null);
+    }
+
     public LogicalRewriter(StatsProvider stats) {
         this.reordering = new JoinReorderingRule(stats);
     }

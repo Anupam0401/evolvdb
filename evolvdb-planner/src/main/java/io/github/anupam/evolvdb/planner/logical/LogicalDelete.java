@@ -1,9 +1,9 @@
 package io.github.anupam.evolvdb.planner.logical;
 
-import io.github.anupam.evolvdb.types.Schema;
-
 import java.util.List;
 import java.util.Objects;
+
+import io.github.anupam.evolvdb.types.Schema;
 
 /** Logical representation of a DELETE statement. */
 public final class LogicalDelete implements LogicalPlan {
@@ -17,10 +17,26 @@ public final class LogicalDelete implements LogicalPlan {
         this.tableSchema = Objects.requireNonNull(tableSchema, "tableSchema");
     }
 
-    public LogicalPlan child() { return child; }
-    public String tableName() { return tableName; }
+    public LogicalPlan child() {
+        return child;
+    }
 
-    @Override public Schema schema() { return tableSchema; }
-    @Override public List<LogicalPlan> children() { return List.of(child); }
-    @Override public <R, C> R accept(LogicalPlanVisitor<R, C> visitor, C context) { return visitor.visitDelete(this, context); }
+    public String tableName() {
+        return tableName;
+    }
+
+    @Override
+    public Schema schema() {
+        return tableSchema;
+    }
+
+    @Override
+    public List<LogicalPlan> children() {
+        return List.of(child);
+    }
+
+    @Override
+    public <R, C> R accept(LogicalPlanVisitor<R, C> visitor, C context) {
+        return visitor.visitDelete(this, context);
+    }
 }

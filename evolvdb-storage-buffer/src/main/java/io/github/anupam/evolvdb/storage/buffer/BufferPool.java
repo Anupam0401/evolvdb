@@ -1,9 +1,9 @@
 package io.github.anupam.evolvdb.storage.buffer;
 
+import java.io.IOException;
+
 import io.github.anupam.evolvdb.storage.disk.PageId;
 import io.github.anupam.evolvdb.storage.page.Page;
-
-import java.io.IOException;
 
 /** BufferPool is responsible for caching pages in memory with pin/unpin semantics. */
 public interface BufferPool extends AutoCloseable {

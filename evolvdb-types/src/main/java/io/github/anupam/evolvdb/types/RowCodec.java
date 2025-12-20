@@ -10,12 +10,8 @@ import java.util.Objects;
 /**
  * RowCodec encodes/decodes a Tuple bound to a Schema into a compact binary form.
  *
- * Encoding (little-endian):
- *  - INT:    4 bytes
- *  - BIGINT: 8 bytes
- *  - BOOLEAN: 1 byte (0=false,1=true)
- *  - FLOAT:  4 bytes (IEEE-754)
- *  - STRING/VARCHAR: [u16 byteLen][UTF-8 bytes]
+ * <p>Encoding (little-endian): - INT: 4 bytes - BIGINT: 8 bytes - BOOLEAN: 1 byte (0=false,1=true)
+ * - FLOAT: 4 bytes (IEEE-754) - STRING/VARCHAR: [u16 byteLen][UTF-8 bytes]
  */
 public final class RowCodec {
     private RowCodec() {}
@@ -24,7 +20,8 @@ public final class RowCodec {
         Objects.requireNonNull(schema, "schema");
         Objects.requireNonNull(tuple, "tuple");
         if (tuple.schema() != schema) {
-            // require same instance to avoid accidental mismatch; caller can pass exact schema used to build tuple
+            // require same instance to avoid accidental mismatch; caller can pass exact schema used
+            // to build tuple
             throw new IllegalArgumentException("Tuple is not bound to provided Schema instance");
         }
         int size = computeSize(schema, tuple.values());
@@ -71,7 +68,8 @@ public final class RowCodec {
                 case STRING, VARCHAR -> {
                     String s = (String) v;
                     int bytesLen = s.getBytes(StandardCharsets.UTF_8).length;
-                    if (bytesLen > 0xFFFF) throw new IllegalArgumentException("string too large to encode");
+                    if (bytesLen > 0xFFFF)
+                        throw new IllegalArgumentException("string too large to encode");
                     total += 2 + bytesLen;
                 }
                 default -> throw new IllegalStateException("Unsupported type: " + col.type());

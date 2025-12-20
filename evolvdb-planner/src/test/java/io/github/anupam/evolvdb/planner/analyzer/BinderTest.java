@@ -1,8 +1,8 @@
 package io.github.anupam.evolvdb.planner.analyzer;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.config.DbConfig;
@@ -17,18 +17,20 @@ import io.github.anupam.evolvdb.sql.parser.SqlParser;
 import io.github.anupam.evolvdb.types.ColumnMeta;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Type;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BinderTest {
     private Path tmpDir;
 
     private Database db() throws Exception {
         tmpDir = Files.createTempDirectory("evolvdb-planner-");
-        DbConfig cfg = DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
+        DbConfig cfg =
+                DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
         return new Database(cfg);
     }
 
@@ -36,7 +38,14 @@ class BinderTest {
     void cleanup() throws Exception {
         if (tmpDir != null && Files.exists(tmpDir)) {
             try (var walk = Files.walk(tmpDir)) {
-                walk.sorted((a,b)->b.getNameCount()-a.getNameCount()).forEach(p -> { try { Files.deleteIfExists(p); } catch (Exception ignored) {} });
+                walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(
+                                p -> {
+                                    try {
+                                        Files.deleteIfExists(p);
+                                    } catch (Exception ignored) {
+                                    }
+                                });
             }
         }
     }
@@ -45,11 +54,12 @@ class BinderTest {
     void select_withProjectionAndFilter_bindsToProjectFilterScan() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema schema = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.VARCHAR, 10),
-                    new ColumnMeta("active", Type.BOOLEAN, null)
-            ));
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.VARCHAR, 10),
+                                    new ColumnMeta("active", Type.BOOLEAN, null)));
             cat.createTable("users", schema);
 
             var parser = new SqlParser();
@@ -72,10 +82,11 @@ class BinderTest {
     void select_star_returnsScanOrFilterWithoutProject() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema schema = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.VARCHAR, 10)
-            ));
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.VARCHAR, 10)));
             cat.createTable("users", schema);
 
             var parser = new SqlParser();
@@ -94,7 +105,8 @@ class BinderTest {
             var parser = new SqlParser();
             Statement stmt = (Statement) parser.parse("SELECT * FROM nope");
             Analyzer analyzer = new Analyzer();
-            assertThrows(IllegalArgumentException.class, () -> analyzer.analyze(stmt, cat, List.of()));
+            assertThrows(
+                    IllegalArgumentException.class, () -> analyzer.analyze(stmt, cat, List.of()));
         }
     }
 
@@ -102,16 +114,18 @@ class BinderTest {
     void select_unknownColumn_throws() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema schema = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.VARCHAR, 10)
-            ));
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.VARCHAR, 10)));
             cat.createTable("users", schema);
 
             var parser = new SqlParser();
             Statement stmt = (Statement) parser.parse("SELECT foo FROM users");
             Analyzer analyzer = new Analyzer();
-            assertThrows(IllegalArgumentException.class, () -> analyzer.analyze(stmt, cat, List.of()));
+            assertThrows(
+                    IllegalArgumentException.class, () -> analyzer.analyze(stmt, cat, List.of()));
         }
     }
 
@@ -119,10 +133,11 @@ class BinderTest {
     void insert_bindsToLogicalInsert() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema schema = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.VARCHAR, 5)
-            ));
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.VARCHAR, 5)));
             cat.createTable("users", schema);
 
             var parser = new SqlParser();

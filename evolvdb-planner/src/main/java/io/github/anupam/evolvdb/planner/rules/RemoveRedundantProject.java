@@ -4,8 +4,8 @@ import io.github.anupam.evolvdb.planner.logical.*;
 import io.github.anupam.evolvdb.sql.ast.ColumnRef;
 
 /**
- * Remove Project when it is an identity over its child schema: items are ColumnRef of all columns in order,
- * and names equal those columns.
+ * Remove Project when it is an identity over its child schema: items are ColumnRef of all columns
+ * in order, and names equal those columns.
  */
 public final class RemoveRedundantProject implements Rule {
     @Override

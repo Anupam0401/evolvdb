@@ -1,5 +1,11 @@
 package io.github.anupam.evolvdb.storage.buffer;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.storage.buffer.policy.EvictionPolicy;
 import io.github.anupam.evolvdb.storage.buffer.policy.LruEvictionPolicy;
@@ -7,15 +13,7 @@ import io.github.anupam.evolvdb.storage.disk.DiskManager;
 import io.github.anupam.evolvdb.storage.disk.PageId;
 import io.github.anupam.evolvdb.storage.page.Page;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-
-/**
- * Default BufferPool with pin/unpin and LRU eviction (Strategy).
- */
+/** Default BufferPool with pin/unpin and LRU eviction (Strategy). */
 public final class DefaultBufferPool implements BufferPool {
     private final int pageSize;
     private final int capacity;
@@ -28,7 +26,8 @@ public final class DefaultBufferPool implements BufferPool {
         this(config, diskManager, new LruEvictionPolicy());
     }
 
-    public DefaultBufferPool(DbConfig config, DiskManager diskManager, EvictionPolicy evictionPolicy) {
+    public DefaultBufferPool(
+            DbConfig config, DiskManager diskManager, EvictionPolicy evictionPolicy) {
         this.pageSize = Objects.requireNonNull(config).pageSize();
         this.capacity = Objects.requireNonNull(config).bufferPoolPages();
         this.diskManager = Objects.requireNonNull(diskManager);
@@ -59,10 +58,12 @@ public final class DefaultBufferPool implements BufferPool {
     }
 
     private void evictOne() throws IOException {
-        PageId victim = evictionPolicy.evictCandidate(id -> {
-            Frame fr = frames.get(id);
-            return fr != null && fr.pinCount == 0;
-        });
+        PageId victim =
+                evictionPolicy.evictCandidate(
+                        id -> {
+                            Frame fr = frames.get(id);
+                            return fr != null && fr.pinCount == 0;
+                        });
         if (victim == null) {
             throw new IllegalStateException("No evictable frame available (all pinned)");
         }
@@ -130,17 +131,26 @@ public final class DefaultBufferPool implements BufferPool {
         Page asPage() {
             return new Page() {
                 @Override
-                public PageId id() { return id; }
+                public PageId id() {
+                    return id;
+                }
+
                 @Override
                 public ByteBuffer buffer() {
                     ByteBuffer dup = buffer.duplicate();
                     dup.clear();
                     return dup;
                 }
+
                 @Override
-                public boolean isDirty() { return dirty; }
+                public boolean isDirty() {
+                    return dirty;
+                }
+
                 @Override
-                public void markDirty(boolean d) { dirty = d; }
+                public void markDirty(boolean d) {
+                    dirty = d;
+                }
             };
         }
     }

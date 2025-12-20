@@ -23,7 +23,7 @@ import io.github.anupam.evolvdb.types.Type;
 /**
  * SQL parser entrypoint. Produces a typed AST from SQL text.
  *
- * Implementation will be a hand-rolled recursive descent parser over a token stream.
+ * <p>Implementation will be a hand-rolled recursive descent parser over a token stream.
  */
 public final class SqlParser {
 
@@ -37,7 +37,9 @@ public final class SqlParser {
         this.cur = tz.next();
         Statement stmt = parseStatement();
         // optional trailing semicolon
-        if (match(TokenType.SEMI)) { /* consume */ }
+        if (match(TokenType.SEMI)) {
+            /* consume */
+        }
         expect(TokenType.EOF, "end of input");
         return stmt;
     }
@@ -50,7 +52,8 @@ public final class SqlParser {
             case SELECT -> parseSelect();
             case UPDATE -> parseUpdate();
             case DELETE -> parseDelete();
-            default -> throw error("Expected a statement (CREATE/DROP/INSERT/SELECT/UPDATE/DELETE)");
+            default ->
+                    throw error("Expected a statement (CREATE/DROP/INSERT/SELECT/UPDATE/DELETE)");
         };
     }
 
@@ -68,7 +71,11 @@ public final class SqlParser {
             if (type == Type.VARCHAR) {
                 expect(TokenType.LPAREN, "(");
                 String n = take(TokenType.NUMBER, "varchar length").lexeme();
-                try { len = Integer.parseInt(n); } catch (NumberFormatException e) { throw error("Invalid varchar length"); }
+                try {
+                    len = Integer.parseInt(n);
+                } catch (NumberFormatException e) {
+                    throw error("Invalid varchar length");
+                }
                 expect(TokenType.RPAREN, ")");
             }
             cols.add(new ColumnDef(colName, type, len));
@@ -148,7 +155,8 @@ public final class SqlParser {
             String col = expectIdent("column name");
             expect(TokenType.EQ, "=");
             Expr val = parseExpr();
-            if (assignments.containsKey(col)) throw error("Duplicate assignment for column: " + col);
+            if (assignments.containsKey(col))
+                throw error("Duplicate assignment for column: " + col);
             assignments.put(col, val);
         } while (match(TokenType.COMMA));
         Expr where = null;
@@ -185,68 +193,132 @@ public final class SqlParser {
         return new TableRef(pos, name, alias);
     }
 
-    private Expr parseExpr() { return parseOr(); }
+    private Expr parseExpr() {
+        return parseOr();
+    }
+
     private Expr parseOr() {
         Expr left = parseAnd();
-        while (cur.type() == TokenType.OR) { advance(); left = new LogicalExpr(cur.pos(), LogicalExpr.Op.OR, left, parseAnd()); }
+        while (cur.type() == TokenType.OR) {
+            advance();
+            left = new LogicalExpr(cur.pos(), LogicalExpr.Op.OR, left, parseAnd());
+        }
         return left;
     }
+
     private Expr parseAnd() {
         Expr left = parseNot();
-        while (cur.type() == TokenType.AND) { advance(); left = new LogicalExpr(cur.pos(), LogicalExpr.Op.AND, left, parseNot()); }
+        while (cur.type() == TokenType.AND) {
+            advance();
+            left = new LogicalExpr(cur.pos(), LogicalExpr.Op.AND, left, parseNot());
+        }
         return left;
     }
+
     private Expr parseNot() {
-        if (cur.type() == TokenType.NOT) { SourcePos pos = cur.pos(); advance(); return new LogicalExpr(pos, LogicalExpr.Op.NOT, parseNot(), null); }
+        if (cur.type() == TokenType.NOT) {
+            SourcePos pos = cur.pos();
+            advance();
+            return new LogicalExpr(pos, LogicalExpr.Op.NOT, parseNot(), null);
+        }
         return parseComparison();
     }
+
     private Expr parseComparison() {
         Expr left = parseAdd();
         switch (cur.type()) {
-            case EQ -> { advance(); return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.EQ, left, parseAdd()); }
-            case NEQ -> { advance(); return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.NEQ, left, parseAdd()); }
-            case LT -> { advance(); return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.LT, left, parseAdd()); }
-            case LTE -> { advance(); return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.LTE, left, parseAdd()); }
-            case GT -> { advance(); return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.GT, left, parseAdd()); }
-            case GTE -> { advance(); return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.GTE, left, parseAdd()); }
-            default -> { return left; }
+            case EQ -> {
+                advance();
+                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.EQ, left, parseAdd());
+            }
+            case NEQ -> {
+                advance();
+                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.NEQ, left, parseAdd());
+            }
+            case LT -> {
+                advance();
+                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.LT, left, parseAdd());
+            }
+            case LTE -> {
+                advance();
+                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.LTE, left, parseAdd());
+            }
+            case GT -> {
+                advance();
+                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.GT, left, parseAdd());
+            }
+            case GTE -> {
+                advance();
+                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.GTE, left, parseAdd());
+            }
+            default -> {
+                return left;
+            }
         }
     }
+
     private Expr parseAdd() {
         Expr left = parseMul();
         while (cur.type() == TokenType.PLUS || cur.type() == TokenType.MINUS) {
             SourcePos pos = cur.pos();
-            if (match(TokenType.PLUS)) left = new BinaryExpr(pos, BinaryExpr.Op.ADD, left, parseMul());
-            else { advance(); left = new BinaryExpr(pos, BinaryExpr.Op.SUB, left, parseMul()); }
+            if (match(TokenType.PLUS))
+                left = new BinaryExpr(pos, BinaryExpr.Op.ADD, left, parseMul());
+            else {
+                advance();
+                left = new BinaryExpr(pos, BinaryExpr.Op.SUB, left, parseMul());
+            }
         }
         return left;
     }
+
     private Expr parseMul() {
         Expr left = parsePrimary();
         while (cur.type() == TokenType.STAR || cur.type() == TokenType.SLASH) {
             SourcePos pos = cur.pos();
-            if (match(TokenType.STAR)) left = new BinaryExpr(pos, BinaryExpr.Op.MUL, left, parsePrimary());
-            else { advance(); left = new BinaryExpr(pos, BinaryExpr.Op.DIV, left, parsePrimary()); }
+            if (match(TokenType.STAR))
+                left = new BinaryExpr(pos, BinaryExpr.Op.MUL, left, parsePrimary());
+            else {
+                advance();
+                left = new BinaryExpr(pos, BinaryExpr.Op.DIV, left, parsePrimary());
+            }
         }
         return left;
     }
+
     private Expr parsePrimary() {
         switch (cur.type()) {
             case NUMBER -> {
                 SourcePos pos = cur.pos();
-                String lex = cur.lexeme(); advance();
+                String lex = cur.lexeme();
+                advance();
                 try {
                     long l = Long.parseLong(lex);
                     Object v = (l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE) ? (int) l : l;
                     return new Literal(pos, v);
-                } catch (NumberFormatException e) { throw error("Invalid number"); }
+                } catch (NumberFormatException e) {
+                    throw error("Invalid number");
+                }
             }
-            case STRING -> { SourcePos pos = cur.pos(); String s = cur.lexeme(); advance(); return new Literal(pos, s); }
-            case TRUE -> { SourcePos pos = cur.pos(); advance(); return new Literal(pos, Boolean.TRUE); }
-            case FALSE -> { SourcePos pos = cur.pos(); advance(); return new Literal(pos, Boolean.FALSE); }
+            case STRING -> {
+                SourcePos pos = cur.pos();
+                String s = cur.lexeme();
+                advance();
+                return new Literal(pos, s);
+            }
+            case TRUE -> {
+                SourcePos pos = cur.pos();
+                advance();
+                return new Literal(pos, Boolean.TRUE);
+            }
+            case FALSE -> {
+                SourcePos pos = cur.pos();
+                advance();
+                return new Literal(pos, Boolean.FALSE);
+            }
             case IDENT -> {
                 SourcePos pos = cur.pos();
-                String first = cur.lexeme(); advance();
+                String first = cur.lexeme();
+                advance();
                 if (match(TokenType.DOT)) {
                     String col = expectIdent("column");
                     return new ColumnRef(pos, first, col);
@@ -267,19 +339,42 @@ public final class SqlParser {
                 }
                 return new ColumnRef(pos, null, first);
             }
-            case LPAREN -> { advance(); Expr e = parseExpr(); expect(TokenType.RPAREN, ")"); return e; }
+            case LPAREN -> {
+                advance();
+                Expr e = parseExpr();
+                expect(TokenType.RPAREN, ")");
+                return e;
+            }
             default -> throw error("Unexpected token in expression: " + cur.type());
         }
     }
 
     private Type parseType() {
         return switch (cur.type()) {
-            case INT -> { advance(); yield Type.INT; }
-            case BIGINT -> { advance(); yield Type.BIGINT; }
-            case BOOLEAN -> { advance(); yield Type.BOOLEAN; }
-            case FLOAT -> { advance(); yield Type.FLOAT; }
-            case STRING_T -> { advance(); yield Type.STRING; }
-            case VARCHAR -> { advance(); yield Type.VARCHAR; }
+            case INT -> {
+                advance();
+                yield Type.INT;
+            }
+            case BIGINT -> {
+                advance();
+                yield Type.BIGINT;
+            }
+            case BOOLEAN -> {
+                advance();
+                yield Type.BOOLEAN;
+            }
+            case FLOAT -> {
+                advance();
+                yield Type.FLOAT;
+            }
+            case STRING_T -> {
+                advance();
+                yield Type.STRING;
+            }
+            case VARCHAR -> {
+                advance();
+                yield Type.VARCHAR;
+            }
             default -> throw error("Expected a type name");
         };
     }
@@ -288,19 +383,34 @@ public final class SqlParser {
         if (cur.type() != t) throw error("Expected " + what + ", found " + cur.type());
         advance();
     }
+
     private Token take(TokenType t, String what) {
         if (cur.type() != t) throw error("Expected " + what + ", found " + cur.type());
         Token tok = cur;
         advance();
         return tok;
     }
+
     private String expectIdent(String what) {
         if (cur.type() != TokenType.IDENT) throw error("Expected " + what);
         String s = cur.lexeme();
         advance();
         return s;
     }
-    private boolean match(TokenType t) { if (cur.type() == t) { advance(); return true; } return false; }
-    private void advance() { cur = tz.next(); }
-    private SqlParseException error(String msg) { return new SqlParseException(msg, cur.pos()); }
+
+    private boolean match(TokenType t) {
+        if (cur.type() == t) {
+            advance();
+            return true;
+        }
+        return false;
+    }
+
+    private void advance() {
+        cur = tz.next();
+    }
+
+    private SqlParseException error(String msg) {
+        return new SqlParseException(msg, cur.pos());
+    }
 }

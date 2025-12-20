@@ -1,16 +1,16 @@
 package io.github.anupam.evolvdb.optimizer;
 
-import io.github.anupam.evolvdb.exec.ExecContext;
-import io.github.anupam.evolvdb.exec.plan.PhysicalPlan;
-import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
-import io.github.anupam.evolvdb.exec.plan.HashJoinPlan;
-import io.github.anupam.evolvdb.exec.plan.SortMergeJoinPlan;
-import io.github.anupam.evolvdb.exec.plan.NestedLoopJoinPlan;
-import io.github.anupam.evolvdb.optimizer.memo.Memo;
-import io.github.anupam.evolvdb.optimizer.memo.Group;
-
-import java.util.List;
 import java.util.Arrays;
+import java.util.List;
+
+import io.github.anupam.evolvdb.exec.ExecContext;
+import io.github.anupam.evolvdb.exec.plan.HashJoinPlan;
+import io.github.anupam.evolvdb.exec.plan.NestedLoopJoinPlan;
+import io.github.anupam.evolvdb.exec.plan.PhysicalPlan;
+import io.github.anupam.evolvdb.exec.plan.SortMergeJoinPlan;
+import io.github.anupam.evolvdb.optimizer.memo.Group;
+import io.github.anupam.evolvdb.optimizer.memo.Memo;
+import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 
 /** Minimal Volcano-style optimizer: bottom-up, rule-driven, choose lowest cost. */
 public final class VolcanoOptimizer {
@@ -51,12 +51,15 @@ public final class VolcanoOptimizer {
                     Cost c = alt.estimate(costModel);
                     int cmp = c.compareTo(bestCost);
                     if (cmp < 0 || (cmp == 0 && betterTieBreak(alt, best))) {
-                        best = alt; bestCost = c;
+                        best = alt;
+                        bestCost = c;
                     }
                 }
             }
         }
-        if (best == null) throw new IllegalArgumentException("No physical alternatives produced for " + logical.getClass().getSimpleName());
+        if (best == null)
+            throw new IllegalArgumentException(
+                    "No physical alternatives produced for " + logical.getClass().getSimpleName());
         return best;
     }
 
@@ -75,18 +78,23 @@ public final class VolcanoOptimizer {
             // Apply rules that match this expression's logical node
             for (PhysicalRule r : rules) {
                 if (r.matches(ge.logical())) {
-                    List<PhysicalPlan> alts = r.apply(ge.logical(), Arrays.asList(optimizedChildren), ctx);
+                    List<PhysicalPlan> alts =
+                            r.apply(ge.logical(), Arrays.asList(optimizedChildren), ctx);
                     for (PhysicalPlan alt : alts) {
                         Cost c = alt.estimate(costModel);
                         int cmp = c.compareTo(globalBestCost);
                         if (cmp < 0 || (cmp == 0 && betterTieBreak(alt, globalBest))) {
-                            globalBest = alt; globalBestCost = c;
+                            globalBest = alt;
+                            globalBestCost = c;
                         }
                     }
                 }
             }
         }
-        if (globalBest == null) throw new IllegalArgumentException("No physical alternatives produced for " + g.logical().getClass().getSimpleName());
+        if (globalBest == null)
+            throw new IllegalArgumentException(
+                    "No physical alternatives produced for "
+                            + g.logical().getClass().getSimpleName());
         g.best(globalBest);
         g.bestCost(globalBestCost);
         return globalBest;

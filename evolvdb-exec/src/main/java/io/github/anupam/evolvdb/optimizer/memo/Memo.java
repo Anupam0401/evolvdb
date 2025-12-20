@@ -1,15 +1,15 @@
 package io.github.anupam.evolvdb.optimizer.memo;
 
-import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+
 import io.github.anupam.evolvdb.planner.logical.LogicalJoin;
+import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 import io.github.anupam.evolvdb.sql.ast.ColumnRef;
 import io.github.anupam.evolvdb.sql.ast.ComparisonExpr;
 import io.github.anupam.evolvdb.sql.ast.Expr;
-
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Minimal memo that interns LogicalPlan nodes by identity. */
 public final class Memo {
@@ -32,8 +32,10 @@ public final class Memo {
             // Swap condition sides if it is an equi-join on two column refs
             Expr cond = j.condition();
             Expr swapped = cond;
-            if (cond instanceof ComparisonExpr ce && ce.op() == ComparisonExpr.Op.EQ &&
-                    ce.left() instanceof ColumnRef && ce.right() instanceof ColumnRef) {
+            if (cond instanceof ComparisonExpr ce
+                    && ce.op() == ComparisonExpr.Op.EQ
+                    && ce.left() instanceof ColumnRef
+                    && ce.right() instanceof ColumnRef) {
                 swapped = new ComparisonExpr(ce.pos(), ce.op(), ce.right(), ce.left());
             }
             LogicalPlan alt = new LogicalJoin(j.right(), j.left(), j.type(), swapped, j.schema());

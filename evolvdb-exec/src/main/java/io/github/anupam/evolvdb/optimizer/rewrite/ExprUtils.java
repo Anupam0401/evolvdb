@@ -1,14 +1,14 @@
 package io.github.anupam.evolvdb.optimizer.rewrite;
 
-import io.github.anupam.evolvdb.sql.ast.*;
-import io.github.anupam.evolvdb.types.ColumnMeta;
-import io.github.anupam.evolvdb.types.Schema;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+
+import io.github.anupam.evolvdb.sql.ast.*;
+import io.github.anupam.evolvdb.types.ColumnMeta;
+import io.github.anupam.evolvdb.types.Schema;
 
 /** Expression utilities for rewrite rules. */
 public final class ExprUtils {
@@ -27,11 +27,13 @@ public final class ExprUtils {
             return;
         }
         if (e instanceof BinaryExpr b) {
-            collect(b.left(), out); collect(b.right(), out);
+            collect(b.left(), out);
+            collect(b.right(), out);
             return;
         }
         if (e instanceof ComparisonExpr c) {
-            collect(c.left(), out); collect(c.right(), out);
+            collect(c.left(), out);
+            collect(c.right(), out);
             return;
         }
         if (e instanceof LogicalExpr l) {
@@ -67,7 +69,7 @@ public final class ExprUtils {
 
     /** Combines a list of conjuncts using AND. If empty, returns a TRUE literal. */
     public static Expr andAll(List<Expr> conjuncts) {
-        if (conjuncts.isEmpty()) return new Literal(new SourcePos(1,1), Boolean.TRUE);
+        if (conjuncts.isEmpty()) return new Literal(new SourcePos(1, 1), Boolean.TRUE);
         Expr cur = conjuncts.get(0);
         for (int i = 1; i < conjuncts.size(); i++) {
             cur = new LogicalExpr(cur.pos(), LogicalExpr.Op.AND, cur, conjuncts.get(i));
@@ -87,13 +89,15 @@ public final class ExprUtils {
     public static boolean schemaContains(Schema schema, ColumnRef ref) {
         String table = ref.table();
         String col = ref.column();
-        String wantQualified = (table == null ? null : (table + "." + col).toLowerCase(Locale.ROOT));
+        String wantQualified =
+                (table == null ? null : (table + "." + col).toLowerCase(Locale.ROOT));
         String wantSuffix = "." + col.toLowerCase(Locale.ROOT);
         String wantCol = col.toLowerCase(Locale.ROOT);
         for (ColumnMeta cm : schema.columns()) {
             String name = cm.name().toLowerCase(Locale.ROOT);
             if (wantQualified != null && name.equals(wantQualified)) return true;
-            if (wantQualified != null && name.endsWith(wantSuffix)) return true; // table may differ but suffix matches
+            if (wantQualified != null && name.endsWith(wantSuffix))
+                return true; // table may differ but suffix matches
             if (name.equals(wantCol)) return true; // unqualified match
         }
         return false;

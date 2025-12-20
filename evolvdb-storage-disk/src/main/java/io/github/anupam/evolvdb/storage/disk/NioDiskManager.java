@@ -1,8 +1,5 @@
 package io.github.anupam.evolvdb.storage.disk;
 
-import io.github.anupam.evolvdb.config.DbConfig;
-import io.github.anupam.evolvdb.common.DbException;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -14,9 +11,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * NIO-based DiskManager. Provides page-level I/O with fixed page size.
- */
+import io.github.anupam.evolvdb.common.DbException;
+import io.github.anupam.evolvdb.config.DbConfig;
+
+/** NIO-based DiskManager. Provides page-level I/O with fixed page size. */
 public final class NioDiskManager implements DiskManager {
     private final DbConfig config;
     private final int pageSize;
@@ -64,7 +62,11 @@ public final class NioDiskManager implements DiskManager {
     public void sync() throws IOException {
         IOException first = null;
         for (var ch : openFiles.values()) {
-            try { ch.force(true); } catch (IOException e) { if (first == null) first = e; }
+            try {
+                ch.force(true);
+            } catch (IOException e) {
+                if (first == null) first = e;
+            }
         }
         if (first != null) throw first;
     }
@@ -82,31 +84,44 @@ public final class NioDiskManager implements DiskManager {
     public void close() throws IOException {
         IOException first = null;
         for (var entry : openFiles.entrySet()) {
-            try { entry.getValue().close(); } catch (IOException e) { if (first == null) first = e; }
+            try {
+                entry.getValue().close();
+            } catch (IOException e) {
+                if (first == null) first = e;
+            }
         }
         openFiles.clear();
         if (first != null) throw first;
     }
 
     private FileChannel openOrCreate(FileId fileId) throws IOException {
-        return openFiles.computeIfAbsent(fileId, id -> {
-            try {
-                Path p = resolvePath(id);
-                return FileChannel.open(p, EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE));
-            } catch (IOException e) {
-                throw new DbException("Failed to open file: " + id.name(), e);
-            }
-        });
+        return openFiles.computeIfAbsent(
+                fileId,
+                id -> {
+                    try {
+                        Path p = resolvePath(id);
+                        return FileChannel.open(
+                                p,
+                                EnumSet.of(
+                                        StandardOpenOption.CREATE,
+                                        StandardOpenOption.READ,
+                                        StandardOpenOption.WRITE));
+                    } catch (IOException e) {
+                        throw new DbException("Failed to open file: " + id.name(), e);
+                    }
+                });
     }
 
     private Path resolvePath(FileId fileId) {
-        String fileName = fileId.name().endsWith(".evolv") ? fileId.name() : fileId.name() + ".evolv";
+        String fileName =
+                fileId.name().endsWith(".evolv") ? fileId.name() : fileId.name() + ".evolv";
         return config.dataDir().resolve(fileName);
     }
 
     private static void ensureRemaining(ByteBuffer buf, int need, String label) {
         if (buf.remaining() < need) {
-            throw new IllegalArgumentException(label + " must have at least " + need + " bytes remaining");
+            throw new IllegalArgumentException(
+                    label + " must have at least " + need + " bytes remaining");
         }
     }
 
@@ -120,7 +135,8 @@ public final class NioDiskManager implements DiskManager {
         }
     }
 
-    private static void readFully(FileChannel ch, long pos, ByteBuffer dst, int len) throws IOException {
+    private static void readFully(FileChannel ch, long pos, ByteBuffer dst, int len)
+            throws IOException {
         int read = 0;
         int startPos = dst.position();
         while (read < len) {

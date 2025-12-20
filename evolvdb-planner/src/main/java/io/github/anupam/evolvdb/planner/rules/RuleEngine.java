@@ -1,9 +1,9 @@
 package io.github.anupam.evolvdb.planner.rules;
 
-import io.github.anupam.evolvdb.planner.logical.*;
-
 import java.util.List;
 import java.util.Objects;
+
+import io.github.anupam.evolvdb.planner.logical.*;
 
 /** Applies a sequence of rules to a logical plan (top-down, fixed-point per node). */
 public final class RuleEngine {

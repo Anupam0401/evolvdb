@@ -1,24 +1,27 @@
 package io.github.anupam.evolvdb.exec;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
 import io.github.anupam.evolvdb.exec.op.*;
-import io.github.anupam.evolvdb.planner.logical.*;
 import io.github.anupam.evolvdb.exec.plan.PhysicalPlan;
 import io.github.anupam.evolvdb.optimizer.*;
 import io.github.anupam.evolvdb.optimizer.rewrite.LogicalRewriter;
-
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Set;
-import java.util.List;
+import io.github.anupam.evolvdb.planner.logical.*;
 
 /** Lowers a logical plan into a tree of Volcano operators. */
 public final class PhysicalPlanner {
 
     public PhysicalOperator plan(LogicalPlan logical, ExecContext ctx) {
         if (ctx.useOptimizer()) {
-            // Pre-optimization logical rewrites (predicate pushdown, projection pruning, join reordering)
+            // Pre-optimization logical rewrites (predicate pushdown, projection pruning, join
+            // reordering)
             logical = new LogicalRewriter(ctx.stats()).rewrite(logical);
-            VolcanoOptimizer opt = new VolcanoOptimizer(new DefaultCostModel(ctx.stats()), defaultRules(), ctx.useMemo());
+            VolcanoOptimizer opt =
+                    new VolcanoOptimizer(
+                            new DefaultCostModel(ctx.stats()), defaultRules(), ctx.useMemo());
             PhysicalPlan best = opt.optimize(logical, ctx);
             return best.create(ctx);
         }
@@ -55,7 +58,8 @@ public final class PhysicalPlanner {
             PhysicalOperator c = plan(d.child(), ctx);
             return new DeleteExec(c, ctx.catalog(), d);
         }
-        throw new IllegalArgumentException("Unsupported logical node: " + logical.getClass().getSimpleName());
+        throw new IllegalArgumentException(
+                "Unsupported logical node: " + logical.getClass().getSimpleName());
     }
 
     private List<PhysicalRule> defaultRules() {
@@ -67,8 +71,7 @@ public final class PhysicalPlanner {
                 new Rules.AggregateRule(),
                 new Rules.InsertRule(),
                 new Rules.UpdateRule(),
-                new Rules.DeleteRule()
-        );
+                new Rules.DeleteRule());
     }
 
     private Set<String> collectQualifiers(LogicalPlan plan) {

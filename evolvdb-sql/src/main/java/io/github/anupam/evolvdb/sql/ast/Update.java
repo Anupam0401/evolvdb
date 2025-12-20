@@ -11,16 +11,26 @@ public final class Update extends Statement {
 
     public Update(SourcePos pos, String tableName, Map<String, Expr> assignments, Expr where) {
         super(pos);
-        if (tableName == null || tableName.isBlank()) throw new IllegalArgumentException("tableName");
+        if (tableName == null || tableName.isBlank())
+            throw new IllegalArgumentException("tableName");
         this.tableName = tableName;
         this.assignments = Map.copyOf(Objects.requireNonNull(assignments, "assignments"));
-        if (assignments.isEmpty()) throw new IllegalArgumentException("at least one assignment required");
+        if (assignments.isEmpty())
+            throw new IllegalArgumentException("at least one assignment required");
         this.where = where;
     }
 
-    public String tableName() { return tableName; }
-    public Map<String, Expr> assignments() { return assignments; }
-    public Expr where() { return where; }
+    public String tableName() {
+        return tableName;
+    }
+
+    public Map<String, Expr> assignments() {
+        return assignments;
+    }
+
+    public Expr where() {
+        return where;
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {

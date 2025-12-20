@@ -1,5 +1,9 @@
 package io.github.anupam.evolvdb.exec.plan;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import io.github.anupam.evolvdb.exec.ExecContext;
 import io.github.anupam.evolvdb.exec.op.NestedLoopJoinExec;
 import io.github.anupam.evolvdb.exec.op.PhysicalOperator;
@@ -7,10 +11,6 @@ import io.github.anupam.evolvdb.optimizer.Cost;
 import io.github.anupam.evolvdb.optimizer.CostModel;
 import io.github.anupam.evolvdb.sql.ast.Expr;
 import io.github.anupam.evolvdb.types.Schema;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 public final class NestedLoopJoinPlan implements PhysicalPlan {
     private final PhysicalPlan left;
@@ -20,12 +20,13 @@ public final class NestedLoopJoinPlan implements PhysicalPlan {
     private final Set<String> leftQuals;
     private final Set<String> rightQuals;
 
-    public NestedLoopJoinPlan(PhysicalPlan left,
-                              PhysicalPlan right,
-                              Expr predicate,
-                              Schema outSchema,
-                              Set<String> leftQuals,
-                              Set<String> rightQuals) {
+    public NestedLoopJoinPlan(
+            PhysicalPlan left,
+            PhysicalPlan right,
+            Expr predicate,
+            Schema outSchema,
+            Set<String> leftQuals,
+            Set<String> rightQuals) {
         this.left = left;
         this.right = right;
         this.predicate = predicate;
@@ -34,8 +35,15 @@ public final class NestedLoopJoinPlan implements PhysicalPlan {
         this.rightQuals = rightQuals == null ? Set.of() : new HashSet<>(rightQuals);
     }
 
-    @Override public Schema schema() { return outSchema; }
-    @Override public List<PhysicalPlan> children() { return List.of(left, right); }
+    @Override
+    public Schema schema() {
+        return outSchema;
+    }
+
+    @Override
+    public List<PhysicalPlan> children() {
+        return List.of(left, right);
+    }
 
     @Override
     public PhysicalOperator create(ExecContext context) {

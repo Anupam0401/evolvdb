@@ -1,15 +1,15 @@
 package io.github.anupam.evolvdb.storage.buffer.policy;
 
-import io.github.anupam.evolvdb.storage.disk.PageId;
-
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.function.Predicate;
 
+import io.github.anupam.evolvdb.storage.disk.PageId;
+
 /**
- * LRU implementation using a LinkedHashSet to track recency.
- * onAccess moves the pageId to the most-recent end.
+ * LRU implementation using a LinkedHashSet to track recency. onAccess moves the pageId to the
+ * most-recent end.
  */
 public final class LruEvictionPolicy implements EvictionPolicy {
     private final LinkedHashSet<PageId> order = new LinkedHashSet<>();

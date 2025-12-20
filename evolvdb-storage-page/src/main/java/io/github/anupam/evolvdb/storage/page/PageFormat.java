@@ -3,8 +3,8 @@ package io.github.anupam.evolvdb.storage.page;
 import java.util.Optional;
 
 /**
- * PageFormat defines the record layout within a fixed-size page buffer.
- * Implementations (e.g., SlottedPageFormat) encapsulate insert/read/delete and space management.
+ * PageFormat defines the record layout within a fixed-size page buffer. Implementations (e.g.,
+ * SlottedPageFormat) encapsulate insert/read/delete and space management.
  */
 public interface PageFormat {
     /** Initializes an empty page with this format's header/metadata. */
@@ -31,8 +31,8 @@ public interface PageFormat {
     boolean isLive(Page page, short slotIndex);
 
     /**
-     * Attempts an in-place update. Returns true if updated in-place; false if insufficient space
-     * or record is deleted. If false, caller should relocate via delete+insert.
+     * Attempts an in-place update. Returns true if updated in-place; false if insufficient space or
+     * record is deleted. If false, caller should relocate via delete+insert.
      */
     boolean update(Page page, RecordId rid, byte[] newRecord);
 }

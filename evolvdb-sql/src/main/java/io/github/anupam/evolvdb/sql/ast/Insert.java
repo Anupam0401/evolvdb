@@ -11,15 +11,24 @@ public final class Insert extends Statement {
 
     public Insert(SourcePos pos, String tableName, List<String> columns, List<List<Expr>> rows) {
         super(pos);
-        if (tableName == null || tableName.isBlank()) throw new IllegalArgumentException("tableName");
+        if (tableName == null || tableName.isBlank())
+            throw new IllegalArgumentException("tableName");
         this.tableName = tableName;
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
         this.rows = List.copyOf(Objects.requireNonNull(rows, "rows"));
     }
 
-    public String tableName() { return tableName; }
-    public List<String> columns() { return columns; }
-    public List<List<Expr>> rows() { return rows; }
+    public String tableName() {
+        return tableName;
+    }
+
+    public List<String> columns() {
+        return columns;
+    }
+
+    public List<List<Expr>> rows() {
+        return rows;
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {

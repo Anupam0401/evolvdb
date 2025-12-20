@@ -1,11 +1,11 @@
 package io.github.anupam.evolvdb.storage.page;
 
+import java.nio.ByteBuffer;
+import java.util.Optional;
+
 import io.github.anupam.evolvdb.storage.disk.FileId;
 import io.github.anupam.evolvdb.storage.disk.PageId;
 import org.junit.jupiter.api.Test;
-
-import java.nio.ByteBuffer;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,10 +19,27 @@ class SlottedPageFormatTest {
             private final ByteBuffer buf = ByteBuffer.allocate(PAGE_SIZE);
             private boolean dirty;
 
-            @Override public PageId id() { return id; }
-            @Override public ByteBuffer buffer() { ByteBuffer d = buf.duplicate(); d.clear(); return d; }
-            @Override public boolean isDirty() { return dirty; }
-            @Override public void markDirty(boolean dirty) { this.dirty = dirty; }
+            @Override
+            public PageId id() {
+                return id;
+            }
+
+            @Override
+            public ByteBuffer buffer() {
+                ByteBuffer d = buf.duplicate();
+                d.clear();
+                return d;
+            }
+
+            @Override
+            public boolean isDirty() {
+                return dirty;
+            }
+
+            @Override
+            public void markDirty(boolean dirty) {
+                this.dirty = dirty;
+            }
         };
     }
 

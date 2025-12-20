@@ -1,11 +1,11 @@
 package io.github.anupam.evolvdb.exec.op;
 
+import java.util.*;
+
 import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
 import io.github.anupam.evolvdb.sql.ast.Expr;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Tuple;
-
-import java.util.*;
 
 /** In-memory sort-merge join for inner equi-join on a single key. */
 public final class SortMergeJoinExec implements PhysicalOperator {
@@ -26,13 +26,14 @@ public final class SortMergeJoinExec implements PhysicalOperator {
     private List<Tuple> currentMatches; // all right tuples matching current left key
     private int matchIndex;
 
-    public SortMergeJoinExec(PhysicalOperator left,
-                             PhysicalOperator right,
-                             Expr leftKey,
-                             Expr rightKey,
-                             Schema outSchema,
-                             Set<String> leftQuals,
-                             Set<String> rightQuals) {
+    public SortMergeJoinExec(
+            PhysicalOperator left,
+            PhysicalOperator right,
+            Expr leftKey,
+            Expr rightKey,
+            Schema outSchema,
+            Set<String> leftQuals,
+            Set<String> rightQuals) {
         this.left = left;
         this.right = right;
         this.leftKey = leftKey;
@@ -56,7 +57,8 @@ public final class SortMergeJoinExec implements PhysicalOperator {
         Comparator<Tuple> rcmp = Comparator.comparing(o -> (Comparable) keyOfRight(o));
         lrows.sort(lcmp);
         rrows.sort(rcmp);
-        li = 0; ri = 0;
+        li = 0;
+        ri = 0;
         currentMatches = List.of();
         matchIndex = 0;
     }
@@ -64,6 +66,7 @@ public final class SortMergeJoinExec implements PhysicalOperator {
     private Object keyOfLeft(Tuple t) {
         return evaluator.eval(leftKey, t, left.schema(), null, null, leftQuals, rightQuals);
     }
+
     private Object keyOfRight(Tuple t) {
         return evaluator.eval(rightKey, null, null, t, right.schema(), leftQuals, rightQuals);
     }
@@ -84,8 +87,14 @@ public final class SortMergeJoinExec implements PhysicalOperator {
             Object lk = keyOfLeft(lrows.get(li));
             Object rk = keyOfRight(rrows.get(ri));
             int cmp = compareKeys(lk, rk);
-            if (cmp < 0) { li++; continue; }
-            if (cmp > 0) { ri++; continue; }
+            if (cmp < 0) {
+                li++;
+                continue;
+            }
+            if (cmp > 0) {
+                ri++;
+                continue;
+            }
             // Collect all rights with key rk
             Object key = rk;
             List<Tuple> rights = new ArrayList<>();
@@ -98,23 +107,29 @@ public final class SortMergeJoinExec implements PhysicalOperator {
             // Prepare currentMatches for first left row with this key
             currentMatches = rights;
             matchIndex = 0;
-            // After we exhaust matches for this left row, we may have additional left rows with same key
+            // After we exhaust matches for this left row, we may have additional left rows with
+            // same key
             // so we keep ri at rj and we will move li forward as we iterate.
-            // However, to keep logic simple, we will emit for each left row separately by keeping rights list.
+            // However, to keep logic simple, we will emit for each left row separately by keeping
+            // rights list.
             // Move li forward only when currentMatches are exhausted and next left key differs.
-            // For now, return first pair; subsequent calls will keep using currentMatches and same li until exhausted.
+            // For now, return first pair; subsequent calls will keep using currentMatches and same
+            // li until exhausted.
         }
     }
 
     @Override
     public void close() throws Exception {
         left.close();
-        lrows = null; rrows = null;
+        lrows = null;
+        rrows = null;
         currentMatches = null;
     }
 
     @Override
-    public Schema schema() { return outSchema; }
+    public Schema schema() {
+        return outSchema;
+    }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private int compareKeys(Object a, Object b) {

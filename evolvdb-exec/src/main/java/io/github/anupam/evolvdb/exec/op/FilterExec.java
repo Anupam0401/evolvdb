@@ -16,11 +16,14 @@ public final class FilterExec implements PhysicalOperator {
         this.predicate = predicate;
     }
 
-    @Override public void open() throws Exception { child.open(); }
+    @Override
+    public void open() throws Exception {
+        child.open();
+    }
 
     @Override
     public Tuple next() throws Exception {
-        for (;;) {
+        for (; ; ) {
             Tuple t = child.next();
             if (t == null) return null;
             Object v = evaluator.eval(predicate, t, child.schema());
@@ -28,7 +31,13 @@ public final class FilterExec implements PhysicalOperator {
         }
     }
 
-    @Override public void close() throws Exception { child.close(); }
+    @Override
+    public void close() throws Exception {
+        child.close();
+    }
 
-    @Override public Schema schema() { return child.schema(); }
+    @Override
+    public Schema schema() {
+        return child.schema();
+    }
 }

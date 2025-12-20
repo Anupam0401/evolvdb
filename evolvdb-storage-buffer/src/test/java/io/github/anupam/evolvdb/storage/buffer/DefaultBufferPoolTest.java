@@ -1,17 +1,16 @@
 package io.github.anupam.evolvdb.storage.buffer;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.storage.disk.FileId;
 import io.github.anupam.evolvdb.storage.disk.NioDiskManager;
 import io.github.anupam.evolvdb.storage.disk.PageId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,9 +26,14 @@ class DefaultBufferPoolTest {
     void cleanup() throws IOException {
         if (tmpDir != null && Files.exists(tmpDir)) {
             try (var paths = Files.walk(tmpDir)) {
-                paths.sorted((a,b) -> b.getNameCount()-a.getNameCount()).forEach(p -> {
-                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-                });
+                paths.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(
+                                p -> {
+                                    try {
+                                        Files.deleteIfExists(p);
+                                    } catch (IOException ignored) {
+                                    }
+                                });
             }
         }
     }
@@ -38,7 +42,7 @@ class DefaultBufferPoolTest {
     void givenSmallPool_whenThirdPageLoaded_thenEvictsLruAndFlushesDirty() throws Exception {
         var cfg = newConfig(2);
         try (var dm = new NioDiskManager(cfg);
-             var bp = new DefaultBufferPool(cfg, dm)) {
+                var bp = new DefaultBufferPool(cfg, dm)) {
             var file = new FileId("tab");
             PageId p0 = dm.allocatePage(file);
             PageId p1 = dm.allocatePage(file);
@@ -78,7 +82,7 @@ class DefaultBufferPoolTest {
     void givenAllPinned_whenLoadNewPage_thenThrowsNoEvictable() throws Exception {
         var cfg = newConfig(2);
         try (var dm = new NioDiskManager(cfg);
-             var bp = new DefaultBufferPool(cfg, dm)) {
+                var bp = new DefaultBufferPool(cfg, dm)) {
             var file = new FileId("tab2");
             PageId p0 = dm.allocatePage(file);
             PageId p1 = dm.allocatePage(file);
@@ -87,7 +91,8 @@ class DefaultBufferPoolTest {
             bp.getPage(p0, false); // pinned
             bp.getPage(p1, false); // pinned
 
-            IllegalStateException ex = assertThrows(IllegalStateException.class, () -> bp.getPage(p2, false));
+            IllegalStateException ex =
+                    assertThrows(IllegalStateException.class, () -> bp.getPage(p2, false));
             assertTrue(ex.getMessage().contains("No evictable frame"));
         }
     }

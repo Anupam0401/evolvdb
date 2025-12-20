@@ -9,6 +9,11 @@ public final class ColumnStats {
         this.nullFraction = nullFraction;
     }
 
-    public long distinctCount() { return distinctCount; }
-    public double nullFraction() { return nullFraction; }
+    public long distinctCount() {
+        return distinctCount;
+    }
+
+    public double nullFraction() {
+        return nullFraction;
+    }
 }

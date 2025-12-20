@@ -1,13 +1,13 @@
 package io.github.anupam.evolvdb.exec.plan;
 
+import java.util.List;
+
 import io.github.anupam.evolvdb.exec.ExecContext;
 import io.github.anupam.evolvdb.exec.op.PhysicalOperator;
 import io.github.anupam.evolvdb.exec.op.SeqScanExec;
 import io.github.anupam.evolvdb.optimizer.Cost;
 import io.github.anupam.evolvdb.optimizer.CostModel;
 import io.github.anupam.evolvdb.types.Schema;
-
-import java.util.List;
 
 public final class SeqScanPlan implements PhysicalPlan {
     private final String tableName;
@@ -18,8 +18,15 @@ public final class SeqScanPlan implements PhysicalPlan {
         this.schema = schema;
     }
 
-    @Override public Schema schema() { return schema; }
-    @Override public List<PhysicalPlan> children() { return List.of(); }
+    @Override
+    public Schema schema() {
+        return schema;
+    }
+
+    @Override
+    public List<PhysicalPlan> children() {
+        return List.of();
+    }
 
     @Override
     public PhysicalOperator create(ExecContext context) {

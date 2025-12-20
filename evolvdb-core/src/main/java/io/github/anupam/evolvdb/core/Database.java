@@ -1,20 +1,20 @@
 package io.github.anupam.evolvdb.core;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Objects;
+
+import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.storage.buffer.BufferPool;
 import io.github.anupam.evolvdb.storage.buffer.DefaultBufferPool;
 import io.github.anupam.evolvdb.storage.disk.DiskManager;
 import io.github.anupam.evolvdb.storage.disk.NioDiskManager;
-import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.storage.page.SlottedPageFormat;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Objects;
-
 /**
- * Database is the facade and composition root for core services.
- * Wires DiskManager, BufferPool, and CatalogManager.
+ * Database is the facade and composition root for core services. Wires DiskManager, BufferPool, and
+ * CatalogManager.
  */
 public final class Database implements Closeable {
     private final DbConfig config;
@@ -30,10 +30,21 @@ public final class Database implements Closeable {
         this.catalogManager = new CatalogManager(diskManager, bufferPool, new SlottedPageFormat());
     }
 
-    public DbConfig config() { return config; }
-    public DiskManager disk() { return diskManager; }
-    public BufferPool buffer() { return bufferPool; }
-    public CatalogManager catalog() { return catalogManager; }
+    public DbConfig config() {
+        return config;
+    }
+
+    public DiskManager disk() {
+        return diskManager;
+    }
+
+    public BufferPool buffer() {
+        return bufferPool;
+    }
+
+    public CatalogManager catalog() {
+        return catalogManager;
+    }
 
     @Override
     public void close() throws IOException {

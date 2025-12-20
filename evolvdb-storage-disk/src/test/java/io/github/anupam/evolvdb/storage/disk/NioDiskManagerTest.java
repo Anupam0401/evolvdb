@@ -1,14 +1,14 @@
 package io.github.anupam.evolvdb.storage.disk;
 
-import io.github.anupam.evolvdb.config.DbConfig;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
+
+import io.github.anupam.evolvdb.config.DbConfig;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,9 +24,14 @@ public class NioDiskManagerTest {
     void cleanup() throws IOException {
         if (tmpDir != null && Files.exists(tmpDir)) {
             try (var paths = Files.walk(tmpDir)) {
-                paths.sorted((a,b) -> b.getNameCount()-a.getNameCount()).forEach(p -> {
-                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-                });
+                paths.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(
+                                p -> {
+                                    try {
+                                        Files.deleteIfExists(p);
+                                    } catch (IOException ignored) {
+                                    }
+                                });
             }
         }
     }
@@ -43,8 +48,8 @@ public class NioDiskManagerTest {
 
             byte[] a = new byte[cfg.pageSize()];
             byte[] b = new byte[cfg.pageSize()];
-            fillPattern(a, (byte)1);
-            fillPattern(b, (byte)2);
+            fillPattern(a, (byte) 1);
+            fillPattern(b, (byte) 2);
 
             dm.writePage(p0, ByteBuffer.wrap(a), 0);
             dm.writePage(p1, ByteBuffer.wrap(b), 0);
@@ -81,7 +86,7 @@ public class NioDiskManagerTest {
     }
 
     private static void fillPattern(byte[] arr, byte value) {
-        for (int i = 0; i < arr.length; i++) arr[i] = (byte)(value + i);
+        for (int i = 0; i < arr.length; i++) arr[i] = (byte) (value + i);
     }
 
     private static byte[] toArray(ByteBuffer buf) {

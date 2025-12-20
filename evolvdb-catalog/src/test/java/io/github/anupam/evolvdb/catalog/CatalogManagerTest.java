@@ -1,5 +1,10 @@
 package io.github.anupam.evolvdb.catalog;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.core.Database;
 import io.github.anupam.evolvdb.types.ColumnMeta;
@@ -7,11 +12,6 @@ import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Type;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,18 +27,23 @@ class CatalogManagerTest {
     void cleanup() throws IOException {
         if (tmpDir != null && Files.exists(tmpDir)) {
             try (var paths = Files.walk(tmpDir)) {
-                paths.sorted((a,b)->b.getNameCount()-a.getNameCount()).forEach(p -> {
-                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-                });
+                paths.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(
+                                p -> {
+                                    try {
+                                        Files.deleteIfExists(p);
+                                    } catch (IOException ignored) {
+                                    }
+                                });
             }
         }
     }
 
     private Schema usersSchema() {
-        return new Schema(List.of(
-                new ColumnMeta("id", Type.INT, null),
-                new ColumnMeta("name", Type.STRING, null)
-        ));
+        return new Schema(
+                List.of(
+                        new ColumnMeta("id", Type.INT, null),
+                        new ColumnMeta("name", Type.STRING, null)));
     }
 
     @Test
@@ -61,7 +66,8 @@ class CatalogManagerTest {
         try (var db = new Database(config)) {
             var cat = db.catalog();
             cat.createTable("users", usersSchema());
-            assertThrows(IllegalArgumentException.class, () -> cat.createTable("users", usersSchema()));
+            assertThrows(
+                    IllegalArgumentException.class, () -> cat.createTable("users", usersSchema()));
         }
     }
 

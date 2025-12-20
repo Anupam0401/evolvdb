@@ -1,5 +1,9 @@
 package io.github.anupam.evolvdb.exec.plan;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import io.github.anupam.evolvdb.exec.ExecContext;
 import io.github.anupam.evolvdb.exec.op.HashJoinExec;
 import io.github.anupam.evolvdb.exec.op.PhysicalOperator;
@@ -7,10 +11,6 @@ import io.github.anupam.evolvdb.optimizer.Cost;
 import io.github.anupam.evolvdb.optimizer.CostModel;
 import io.github.anupam.evolvdb.sql.ast.Expr;
 import io.github.anupam.evolvdb.types.Schema;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 /** Placeholder HashJoin plan; create() not implemented yet. */
 public final class HashJoinPlan implements PhysicalPlan {
@@ -22,7 +22,14 @@ public final class HashJoinPlan implements PhysicalPlan {
     private final Set<String> leftQuals;
     private final Set<String> rightQuals;
 
-    public HashJoinPlan(PhysicalPlan left, PhysicalPlan right, Expr leftKey, Expr rightKey, Schema outSchema, Set<String> leftQuals, Set<String> rightQuals) {
+    public HashJoinPlan(
+            PhysicalPlan left,
+            PhysicalPlan right,
+            Expr leftKey,
+            Expr rightKey,
+            Schema outSchema,
+            Set<String> leftQuals,
+            Set<String> rightQuals) {
         this.left = left;
         this.right = right;
         this.leftKey = leftKey;
@@ -32,12 +39,26 @@ public final class HashJoinPlan implements PhysicalPlan {
         this.rightQuals = rightQuals == null ? Set.of() : new HashSet<>(rightQuals);
     }
 
-    @Override public Schema schema() { return outSchema; }
-    @Override public List<PhysicalPlan> children() { return List.of(left, right); }
+    @Override
+    public Schema schema() {
+        return outSchema;
+    }
+
+    @Override
+    public List<PhysicalPlan> children() {
+        return List.of(left, right);
+    }
 
     @Override
     public PhysicalOperator create(ExecContext context) {
-        return new HashJoinExec(left.create(context), right.create(context), leftKey, rightKey, outSchema, leftQuals, rightQuals);
+        return new HashJoinExec(
+                left.create(context),
+                right.create(context),
+                leftKey,
+                rightKey,
+                outSchema,
+                leftQuals,
+                rightQuals);
     }
 
     @Override

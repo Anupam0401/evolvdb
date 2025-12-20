@@ -3,9 +3,7 @@ package io.github.anupam.evolvdb.storage.disk;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-/**
- * DiskManager abstracts page-level I/O on files. It does not buffer; that's BufferPool's job.
- */
+/** DiskManager abstracts page-level I/O on files. It does not buffer; that's BufferPool's job. */
 public interface DiskManager extends AutoCloseable {
     /** Allocates a new page at the end of the given file and returns its PageId. */
     PageId allocatePage(FileId fileId) throws IOException;

@@ -1,13 +1,5 @@
 package io.github.anupam.evolvdb.catalog;
 
-import io.github.anupam.evolvdb.storage.buffer.BufferPool;
-import io.github.anupam.evolvdb.storage.disk.DiskManager;
-import io.github.anupam.evolvdb.storage.disk.FileId;
-import io.github.anupam.evolvdb.storage.page.PageFormat;
-import io.github.anupam.evolvdb.storage.record.HeapFile;
-import io.github.anupam.evolvdb.storage.record.RecordManager;
-import io.github.anupam.evolvdb.types.Schema;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,9 +10,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import io.github.anupam.evolvdb.storage.buffer.BufferPool;
+import io.github.anupam.evolvdb.storage.disk.DiskManager;
+import io.github.anupam.evolvdb.storage.disk.FileId;
+import io.github.anupam.evolvdb.storage.page.PageFormat;
+import io.github.anupam.evolvdb.storage.record.HeapFile;
+import io.github.anupam.evolvdb.storage.record.RecordManager;
+import io.github.anupam.evolvdb.types.Schema;
+
 /**
- * Catalog manager backed by a system HeapFile. Append-only log of UPSERT/DROP records.
- * Rebuilds in-memory index on startup by scanning the catalog file.
+ * Catalog manager backed by a system HeapFile. Append-only log of UPSERT/DROP records. Rebuilds
+ * in-memory index on startup by scanning the catalog file.
  */
 public final class CatalogManager {
     public static final String CATALOG_FILE_NAME = "__catalog__";
@@ -34,7 +34,8 @@ public final class CatalogManager {
     private final Map<String, TableMeta> byName = new HashMap<>(); // lower-case key
     private long nextId = 1;
 
-    public CatalogManager(DiskManager disk, BufferPool buffer, PageFormat format) throws IOException {
+    public CatalogManager(DiskManager disk, BufferPool buffer, PageFormat format)
+            throws IOException {
         this.disk = Objects.requireNonNull(disk);
         this.buffer = Objects.requireNonNull(buffer);
         this.format = Objects.requireNonNull(format);
@@ -66,7 +67,8 @@ public final class CatalogManager {
         Objects.requireNonNull(name);
         Objects.requireNonNull(schema);
         String key = name.toLowerCase(Locale.ROOT);
-        if (byName.containsKey(key)) throw new IllegalArgumentException("table already exists: " + name);
+        if (byName.containsKey(key))
+            throw new IllegalArgumentException("table already exists: " + name);
         TableId id = new TableId(nextId++);
         FileId file = new FileId("t_" + id.value());
         TableMeta meta = new TableMeta(id, name, schema, file);

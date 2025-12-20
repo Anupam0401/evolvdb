@@ -1,15 +1,15 @@
 package io.github.anupam.evolvdb.optimizer.rewrite;
 
-import io.github.anupam.evolvdb.optimizer.DefaultCostModel;
+import java.util.*;
+
 import io.github.anupam.evolvdb.optimizer.Cost;
+import io.github.anupam.evolvdb.optimizer.DefaultCostModel;
 import io.github.anupam.evolvdb.optimizer.stats.StatsProvider;
 import io.github.anupam.evolvdb.planner.logical.*;
 import io.github.anupam.evolvdb.sql.ast.ColumnRef;
 import io.github.anupam.evolvdb.sql.ast.ComparisonExpr;
 import io.github.anupam.evolvdb.sql.ast.Expr;
-
 import io.github.anupam.evolvdb.types.Schema;
-import java.util.*;
 
 /** Greedy left-deep join reordering for INNER joins using basic stats. */
 public final class JoinReorderingRule implements LogicalRule {
@@ -22,10 +22,14 @@ public final class JoinReorderingRule implements LogicalRule {
     }
 
     @Override
-    public boolean matches(LogicalPlan plan) { return plan instanceof LogicalJoin j && j.type() == LogicalJoin.JoinType.INNER; }
+    public boolean matches(LogicalPlan plan) {
+        return plan instanceof LogicalJoin j && j.type() == LogicalJoin.JoinType.INNER;
+    }
 
     @Override
-    public LogicalPlan apply(LogicalPlan plan) { return rewrite(plan); }
+    public LogicalPlan apply(LogicalPlan plan) {
+        return rewrite(plan);
+    }
 
     public LogicalPlan rewrite(LogicalPlan plan) {
         if (!(plan instanceof LogicalJoin j) || j.type() != LogicalJoin.JoinType.INNER) {
@@ -49,11 +53,14 @@ public final class JoinReorderingRule implements LogicalRule {
         // Greedy left-deep: pick smallest leaf by table stats
         int seedIdx = pickSmallestLeaf(leaves);
         LogicalPlan leftTree = rewrite(leaves.remove(seedIdx));
-        Set<Integer> leftSet = new HashSet<>(); leftSet.add(seedIdx); // indices original; not needed further
+        Set<Integer> leftSet = new HashSet<>();
+        leftSet.add(seedIdx); // indices original; not needed further
         List<Expr> remaining = new ArrayList<>(predicates);
         // Build iteratively
         while (!leaves.isEmpty()) {
-            int bestIdx = -1; double bestScore = Double.POSITIVE_INFINITY; Expr bestPred = null;
+            int bestIdx = -1;
+            double bestScore = Double.POSITIVE_INFINITY;
+            Expr bestPred = null;
             for (int i = 0; i < leaves.size(); i++) {
                 LogicalPlan cand = leaves.get(i);
                 // find a conjunct that connects leftTree and cand
@@ -61,14 +68,25 @@ public final class JoinReorderingRule implements LogicalRule {
                 Cost lc = Cost.of(estimateRows(leftTree), 0, 0);
                 Cost rc = Cost.of(estimateRows(cand), 0, 0);
                 Cost est;
-                if (eq != null) est = costModel.costHashJoin(lc, rc, eq); // prefer hash-join estimate if equi
+                if (eq != null)
+                    est = costModel.costHashJoin(lc, rc, eq); // prefer hash-join estimate if equi
                 else est = costModel.costNestedLoopJoin(lc, rc); // cross-ish
                 double score = est.total();
-                if (score < bestScore) { bestScore = score; bestIdx = i; bestPred = eq; }
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestIdx = i;
+                    bestPred = eq;
+                }
             }
             LogicalPlan next = rewrite(leaves.remove(bestIdx));
             if (bestPred != null) removeOnePredicate(remaining, bestPred);
-            leftTree = new LogicalJoin(leftTree, next, LogicalJoin.JoinType.INNER, bestPred, mergeSchemas(leftTree.schema(), next.schema()));
+            leftTree =
+                    new LogicalJoin(
+                            leftTree,
+                            next,
+                            LogicalJoin.JoinType.INNER,
+                            bestPred,
+                            mergeSchemas(leftTree.schema(), next.schema()));
         }
         // Attach any remaining predicates as a filter above
         if (!remaining.isEmpty()) {
@@ -79,16 +97,22 @@ public final class JoinReorderingRule implements LogicalRule {
     }
 
     private static LogicalPlan rebuild(LogicalPlan plan, List<LogicalPlan> children) {
-        if (plan instanceof LogicalProject p) return new LogicalProject(children.get(0), p.items(), p.schema());
-        if (plan instanceof LogicalJoin j) return new LogicalJoin(children.get(0), children.get(1), j.type(), j.condition(), j.schema());
-        if (plan instanceof LogicalAggregate a) return new LogicalAggregate(children.get(0), a.groupBy(), a.aggregates(), a.schema());
+        if (plan instanceof LogicalProject p)
+            return new LogicalProject(children.get(0), p.items(), p.schema());
+        if (plan instanceof LogicalJoin j)
+            return new LogicalJoin(
+                    children.get(0), children.get(1), j.type(), j.condition(), j.schema());
+        if (plan instanceof LogicalAggregate a)
+            return new LogicalAggregate(children.get(0), a.groupBy(), a.aggregates(), a.schema());
         return plan;
     }
 
     private void collectJoins(LogicalJoin j, List<LogicalPlan> leaves, List<Expr> predicates) {
-        if (j.left() instanceof LogicalJoin jl && jl.type() == LogicalJoin.JoinType.INNER) collectJoins(jl, leaves, predicates);
+        if (j.left() instanceof LogicalJoin jl && jl.type() == LogicalJoin.JoinType.INNER)
+            collectJoins(jl, leaves, predicates);
         else leaves.add(j.left());
-        if (j.right() instanceof LogicalJoin jr && jr.type() == LogicalJoin.JoinType.INNER) collectJoins(jr, leaves, predicates);
+        if (j.right() instanceof LogicalJoin jr && jr.type() == LogicalJoin.JoinType.INNER)
+            collectJoins(jr, leaves, predicates);
         else leaves.add(j.right());
         if (j.condition() != null) predicates.addAll(ExprUtils.splitConjuncts(j.condition()));
     }
@@ -98,7 +122,10 @@ public final class JoinReorderingRule implements LogicalRule {
         double bestRows = Double.POSITIVE_INFINITY;
         for (int i = 0; i < leaves.size(); i++) {
             double rows = estimateRows(leaves.get(i));
-            if (rows < bestRows) { bestRows = rows; best = i; }
+            if (rows < bestRows) {
+                bestRows = rows;
+                best = i;
+            }
         }
         return best;
     }
@@ -122,8 +149,12 @@ public final class JoinReorderingRule implements LogicalRule {
             if (e instanceof ComparisonExpr ce && ce.op() == ComparisonExpr.Op.EQ) {
                 Set<ColumnRef> lrefs = ExprUtils.collectColumnRefs(ce.left());
                 Set<ColumnRef> rrefs = ExprUtils.collectColumnRefs(ce.right());
-                boolean leftOnly = ExprUtils.schemaContainsAll(left, lrefs) && ExprUtils.schemaContainsAll(right, rrefs);
-                boolean rightOnly = ExprUtils.schemaContainsAll(left, rrefs) && ExprUtils.schemaContainsAll(right, lrefs);
+                boolean leftOnly =
+                        ExprUtils.schemaContainsAll(left, lrefs)
+                                && ExprUtils.schemaContainsAll(right, rrefs);
+                boolean rightOnly =
+                        ExprUtils.schemaContainsAll(left, rrefs)
+                                && ExprUtils.schemaContainsAll(right, lrefs);
                 if ((leftOnly || rightOnly) && !lrefs.isEmpty() && !rrefs.isEmpty()) return e;
             }
         }
@@ -132,13 +163,23 @@ public final class JoinReorderingRule implements LogicalRule {
 
     private static void removeOnePredicate(List<Expr> list, Expr pred) {
         for (int i = 0; i < list.size(); i++) {
-            if (list.get(i) == pred || list.get(i).equals(pred)) { list.remove(i); return; }
+            if (list.get(i) == pred || list.get(i).equals(pred)) {
+                list.remove(i);
+                return;
+            }
         }
     }
 
-    private static Schema mergeSchemas(Schema a, Schema b) { return new Schema(concat(a.columns(), b.columns())); }
-    private static List<io.github.anupam.evolvdb.types.ColumnMeta> concat(List<io.github.anupam.evolvdb.types.ColumnMeta> x, List<io.github.anupam.evolvdb.types.ColumnMeta> y) {
-        List<io.github.anupam.evolvdb.types.ColumnMeta> out = new ArrayList<>(x.size()+y.size());
-        out.addAll(x); out.addAll(y); return out;
+    private static Schema mergeSchemas(Schema a, Schema b) {
+        return new Schema(concat(a.columns(), b.columns()));
+    }
+
+    private static List<io.github.anupam.evolvdb.types.ColumnMeta> concat(
+            List<io.github.anupam.evolvdb.types.ColumnMeta> x,
+            List<io.github.anupam.evolvdb.types.ColumnMeta> y) {
+        List<io.github.anupam.evolvdb.types.ColumnMeta> out = new ArrayList<>(x.size() + y.size());
+        out.addAll(x);
+        out.addAll(y);
+        return out;
     }
 }

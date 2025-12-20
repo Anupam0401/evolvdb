@@ -2,7 +2,14 @@ package io.github.anupam.evolvdb.sql.ast;
 
 /** Arithmetic/string concatenation or generic binary op. */
 public final class BinaryExpr extends Expr {
-    public enum Op { ADD, SUB, MUL, DIV, CONCAT }
+    public enum Op {
+        ADD,
+        SUB,
+        MUL,
+        DIV,
+        CONCAT
+    }
+
     private final Op op;
     private final Expr left;
     private final Expr right;
@@ -14,9 +21,17 @@ public final class BinaryExpr extends Expr {
         this.right = right;
     }
 
-    public Op op() { return op; }
-    public Expr left() { return left; }
-    public Expr right() { return right; }
+    public Op op() {
+        return op;
+    }
+
+    public Expr left() {
+        return left;
+    }
+
+    public Expr right() {
+        return right;
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {

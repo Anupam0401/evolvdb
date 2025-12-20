@@ -9,7 +9,9 @@ public final class Literal extends Expr {
         this.value = value; // may be null in future for NULL literal
     }
 
-    public Object value() { return value; }
+    public Object value() {
+        return value;
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {

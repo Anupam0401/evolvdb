@@ -1,5 +1,10 @@
 package io.github.anupam.evolvdb.storage.record;
 
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+
 import io.github.anupam.evolvdb.storage.buffer.BufferPool;
 import io.github.anupam.evolvdb.storage.disk.DiskManager;
 import io.github.anupam.evolvdb.storage.disk.FileId;
@@ -8,15 +13,9 @@ import io.github.anupam.evolvdb.storage.page.Page;
 import io.github.anupam.evolvdb.storage.page.PageFormat;
 import io.github.anupam.evolvdb.storage.page.RecordId;
 
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.function.Supplier;
-
 /**
- * HeapFile stores variable-length records across pages using a PageFormat (Strategy).
- * It uses BufferPool for page caching and DiskManager for page allocation.
+ * HeapFile stores variable-length records across pages using a PageFormat (Strategy). It uses
+ * BufferPool for page caching and DiskManager for page allocation.
  */
 public final class HeapFile {
     private final FileId fileId;
@@ -31,11 +30,15 @@ public final class HeapFile {
         this.format = Objects.requireNonNull(format);
     }
 
-    public FileId fileId() { return fileId; }
+    public FileId fileId() {
+        return fileId;
+    }
 
-    /** Inserts a record, allocating and initializing a new page if necessary.
-     *  Intentionally avoids assuming any particular PageFormat overhead; it attempts insert and
-     *  falls back to the next page on failure (e.g., insufficient space). */
+    /**
+     * Inserts a record, allocating and initializing a new page if necessary. Intentionally avoids
+     * assuming any particular PageFormat overhead; it attempts insert and falls back to the next
+     * page on failure (e.g., insufficient space).
+     */
     public RecordId insert(byte[] record) throws IOException {
         Objects.requireNonNull(record);
         int pages = disk.pageCount(fileId);
@@ -92,7 +95,10 @@ public final class HeapFile {
         }
     }
 
-    /** Updates a record; attempts in-place if possible else tombstones and reinserts, possibly returning a new RecordId. */
+    /**
+     * Updates a record; attempts in-place if possible else tombstones and reinserts, possibly
+     * returning a new RecordId.
+     */
     public RecordId update(RecordId rid, byte[] newRecord) throws IOException {
         Objects.requireNonNull(rid);
         Objects.requireNonNull(newRecord);
@@ -191,17 +197,24 @@ public final class HeapFile {
 
     /** Returns an Iterable of record bytes over the heap file (live records only). */
     public Iterable<byte[]> scan() {
-        return () -> new Iterator<>() {
-            final Iterator<RecordId> it = iterator();
-            @Override public boolean hasNext() { return it.hasNext(); }
-            @Override public byte[] next() {
-                RecordId rid = it.next();
-                try {
-                    return read(rid);
-                } catch (IOException e) {
-                    throw new IllegalStateException(e);
-                }
-            }
-        };
+        return () ->
+                new Iterator<>() {
+                    final Iterator<RecordId> it = iterator();
+
+                    @Override
+                    public boolean hasNext() {
+                        return it.hasNext();
+                    }
+
+                    @Override
+                    public byte[] next() {
+                        RecordId rid = it.next();
+                        try {
+                            return read(rid);
+                        } catch (IOException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    }
+                };
     }
 }

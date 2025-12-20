@@ -1,8 +1,8 @@
 package io.github.anupam.evolvdb.types;
 
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
+
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -10,10 +10,11 @@ class RowCodecTest {
 
     @Test
     void givenTuple_whenEncodeDecode_thenRoundTrip() {
-        Schema schema = new Schema(List.of(
-                new ColumnMeta("id", Type.INT, null),
-                new ColumnMeta("name", Type.STRING, null)
-        ));
+        Schema schema =
+                new Schema(
+                        List.of(
+                                new ColumnMeta("id", Type.INT, null),
+                                new ColumnMeta("name", Type.STRING, null)));
         Tuple t = new Tuple(schema, List.of(1, "Alice"));
         byte[] bytes = RowCodec.encode(schema, t);
         Tuple out = RowCodec.decode(schema, bytes);

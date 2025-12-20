@@ -7,13 +7,19 @@ public final class Delete extends Statement {
 
     public Delete(SourcePos pos, String tableName, Expr where) {
         super(pos);
-        if (tableName == null || tableName.isBlank()) throw new IllegalArgumentException("tableName");
+        if (tableName == null || tableName.isBlank())
+            throw new IllegalArgumentException("tableName");
         this.tableName = tableName;
         this.where = where;
     }
 
-    public String tableName() { return tableName; }
-    public Expr where() { return where; }
+    public String tableName() {
+        return tableName;
+    }
+
+    public Expr where() {
+        return where;
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {

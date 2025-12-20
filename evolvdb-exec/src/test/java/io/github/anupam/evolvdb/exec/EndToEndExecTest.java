@@ -1,10 +1,14 @@
 package io.github.anupam.evolvdb.exec;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.core.Database;
 import io.github.anupam.evolvdb.exec.op.PhysicalOperator;
-import io.github.anupam.evolvdb.exec.PhysicalPlanner;
 import io.github.anupam.evolvdb.planner.analyzer.Analyzer;
 import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 import io.github.anupam.evolvdb.sql.ast.Statement;
@@ -16,11 +20,6 @@ import io.github.anupam.evolvdb.types.Type;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class EndToEndExecTest {
@@ -28,7 +27,8 @@ public class EndToEndExecTest {
 
     private Database db() throws Exception {
         tmpDir = Files.createTempDirectory("evolvdb-exec-");
-        DbConfig cfg = DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
+        DbConfig cfg =
+                DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
         return new Database(cfg);
     }
 
@@ -36,7 +36,14 @@ public class EndToEndExecTest {
     void cleanup() throws Exception {
         if (tmpDir != null && Files.exists(tmpDir)) {
             try (var walk = Files.walk(tmpDir)) {
-                walk.sorted((a,b)->b.getNameCount()-a.getNameCount()).forEach(p -> { try { Files.deleteIfExists(p); } catch (Exception ignored) {} });
+                walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(
+                                p -> {
+                                    try {
+                                        Files.deleteIfExists(p);
+                                    } catch (Exception ignored) {
+                                    }
+                                });
             }
         }
     }
@@ -45,10 +52,11 @@ public class EndToEndExecTest {
     void select_filter_executes() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema users = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("age", Type.INT, null)
-            ));
+            Schema users =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("age", Type.INT, null)));
             cat.createTable("users", users);
             var table = cat.openTable("users");
             table.insert(new Tuple(users, List.of(1, 42)));

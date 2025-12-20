@@ -1,13 +1,13 @@
 package io.github.anupam.evolvdb.exec.op;
 
+import java.util.*;
+
 import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
 import io.github.anupam.evolvdb.planner.logical.ProjectItem;
 import io.github.anupam.evolvdb.sql.ast.Expr;
 import io.github.anupam.evolvdb.sql.ast.FuncCall;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Tuple;
-
-import java.util.*;
 
 /** Naive GROUP BY aggregate: buffers all groups and computes aggregates. */
 public final class AggregateExec implements PhysicalOperator {
@@ -20,7 +20,11 @@ public final class AggregateExec implements PhysicalOperator {
 
     private Iterator<Tuple> resultIter;
 
-    public AggregateExec(PhysicalOperator child, List<Expr> groupBy, List<ProjectItem> outputs, Schema outSchema) {
+    public AggregateExec(
+            PhysicalOperator child,
+            List<Expr> groupBy,
+            List<ProjectItem> outputs,
+            Schema outSchema) {
         this.child = child;
         this.groupBy = List.copyOf(groupBy);
         this.outputs = List.copyOf(outputs);
@@ -74,13 +78,17 @@ public final class AggregateExec implements PhysicalOperator {
     }
 
     @Override
-    public Schema schema() { return outSchema; }
+    public Schema schema() {
+        return outSchema;
+    }
 
     private final class GroupState {
         final Tuple sample;
         final Map<Integer, AggState> aggs = new HashMap<>(); // output index -> state
 
-        GroupState(Tuple sample) { this.sample = sample; }
+        GroupState(Tuple sample) {
+            this.sample = sample;
+        }
 
         void update(Tuple t) {
             for (int i = 0; i < outputs.size(); i++) {
@@ -89,7 +97,8 @@ public final class AggregateExec implements PhysicalOperator {
                     AggState s = aggs.computeIfAbsent(i, k -> createAgg(fc));
                     Object v = null;
                     if (!fc.starArg()) {
-                        if (fc.args().size() != 1) throw new IllegalArgumentException("Aggregate arg count");
+                        if (fc.args().size() != 1)
+                            throw new IllegalArgumentException("Aggregate arg count");
                         v = evaluator.eval(fc.args().get(0), t, child.schema());
                     }
                     s.add(v);
@@ -119,62 +128,114 @@ public final class AggregateExec implements PhysicalOperator {
         }
     }
 
-    private interface AggState { void add(Object v); Object result(); }
+    private interface AggState {
+        void add(Object v);
+
+        Object result();
+    }
 
     private static final class CountAgg implements AggState {
         long c = 0;
-        @Override public void add(Object v) { c++; }
-        @Override public Object result() { return Long.valueOf(c); }
+
+        @Override
+        public void add(Object v) {
+            c++;
+        }
+
+        @Override
+        public Object result() {
+            return Long.valueOf(c);
+        }
     }
 
     private static final class SumAgg implements AggState {
-        boolean f = false; double sf = 0; long sl = 0;
-        @Override public void add(Object v) {
-            if (v instanceof Float) { f = true; sf += (Float) v; }
-            else if (v instanceof Long) sl += (Long) v;
+        boolean f = false;
+        double sf = 0;
+        long sl = 0;
+
+        @Override
+        public void add(Object v) {
+            if (v instanceof Float) {
+                f = true;
+                sf += (Float) v;
+            } else if (v instanceof Long) sl += (Long) v;
             else if (v instanceof Integer) sl += (Integer) v;
-            else if (v == null) { /* ignore */ }
-            else throw new IllegalArgumentException("SUM unsupported type: " + v);
+            else if (v == null) {
+                /* ignore */
+            } else throw new IllegalArgumentException("SUM unsupported type: " + v);
         }
-        @Override public Object result() { return f ? Float.valueOf((float) sf) : Long.valueOf(sl); }
+
+        @Override
+        public Object result() {
+            return f ? Float.valueOf((float) sf) : Long.valueOf(sl);
+        }
     }
 
     private static final class AvgAgg implements AggState {
-        double sum = 0; long cnt = 0;
-        @Override public void add(Object v) {
-            if (v instanceof Float) { sum += ((Float) v).doubleValue(); cnt++; }
-            else if (v instanceof Long) { sum += ((Long) v).doubleValue(); cnt++; }
-            else if (v instanceof Integer) { sum += ((Integer) v).doubleValue(); cnt++; }
-            else if (v == null) { /* ignore */ }
-            else throw new IllegalArgumentException("AVG unsupported type: " + v);
+        double sum = 0;
+        long cnt = 0;
+
+        @Override
+        public void add(Object v) {
+            if (v instanceof Float) {
+                sum += ((Float) v).doubleValue();
+                cnt++;
+            } else if (v instanceof Long) {
+                sum += ((Long) v).doubleValue();
+                cnt++;
+            } else if (v instanceof Integer) {
+                sum += ((Integer) v).doubleValue();
+                cnt++;
+            } else if (v == null) {
+                /* ignore */
+            } else throw new IllegalArgumentException("AVG unsupported type: " + v);
         }
-        @Override public Object result() { return Float.valueOf((float) (sum / (cnt == 0 ? 1 : cnt))); }
+
+        @Override
+        public Object result() {
+            return Float.valueOf((float) (sum / (cnt == 0 ? 1 : cnt)));
+        }
     }
 
     private static final class MinMaxAgg implements AggState {
         final boolean isMin;
         Object cur = null;
-        MinMaxAgg(boolean isMin) { this.isMin = isMin; }
-        @Override public void add(Object v) {
+
+        MinMaxAgg(boolean isMin) {
+            this.isMin = isMin;
+        }
+
+        @Override
+        public void add(Object v) {
             if (v == null) return;
-            if (cur == null) { cur = v; return; }
+            if (cur == null) {
+                cur = v;
+                return;
+            }
             int c = compare(v, cur);
             if ((isMin && c < 0) || (!isMin && c > 0)) cur = v;
         }
-        @Override public Object result() { return cur; }
+
+        @Override
+        public Object result() {
+            return cur;
+        }
     }
 
     private static int compare(Object l, Object r) {
         if (l instanceof Float || r instanceof Float) {
-            float lf = toFloat(l); float rf = toFloat(r);
+            float lf = toFloat(l);
+            float rf = toFloat(r);
             return Float.compare(lf, rf);
         }
         if (l instanceof Long || r instanceof Long) {
-            long ll = toLong(l); long rl = toLong(r);
+            long ll = toLong(l);
+            long rl = toLong(r);
             return Long.compare(ll, rl);
         }
         if (l instanceof Integer || r instanceof Integer) {
-            int li = toInt(l); int ri = toInt(r);
+            int li = toInt(l);
+            int ri = toInt(r);
             return Integer.compare(li, ri);
         }
         if (l instanceof Boolean && r instanceof Boolean) {
@@ -182,7 +243,25 @@ public final class AggregateExec implements PhysicalOperator {
         }
         return String.valueOf(l).compareTo(String.valueOf(r));
     }
-    private static int toInt(Object o) { if (o instanceof Integer i) return i; if (o instanceof Long l) return (int)(long)l; if (o instanceof Float f) return (int)(float)f; throw new IllegalArgumentException(); }
-    private static long toLong(Object o) { if (o instanceof Integer i) return i.longValue(); if (o instanceof Long l) return l; if (o instanceof Float f) return (long)f.floatValue(); throw new IllegalArgumentException(); }
-    private static float toFloat(Object o) { if (o instanceof Integer i) return i.floatValue(); if (o instanceof Long l) return l.floatValue(); if (o instanceof Float f) return f; throw new IllegalArgumentException(); }
+
+    private static int toInt(Object o) {
+        if (o instanceof Integer i) return i;
+        if (o instanceof Long l) return (int) (long) l;
+        if (o instanceof Float f) return (int) (float) f;
+        throw new IllegalArgumentException();
+    }
+
+    private static long toLong(Object o) {
+        if (o instanceof Integer i) return i.longValue();
+        if (o instanceof Long l) return l;
+        if (o instanceof Float f) return (long) f.floatValue();
+        throw new IllegalArgumentException();
+    }
+
+    private static float toFloat(Object o) {
+        if (o instanceof Integer i) return i.floatValue();
+        if (o instanceof Long l) return l.floatValue();
+        if (o instanceof Float f) return f;
+        throw new IllegalArgumentException();
+    }
 }

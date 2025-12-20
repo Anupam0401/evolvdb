@@ -1,9 +1,9 @@
 package io.github.anupam.evolvdb.catalog;
 
+import java.util.Objects;
+
 import io.github.anupam.evolvdb.storage.disk.FileId;
 import io.github.anupam.evolvdb.types.Schema;
-
-import java.util.Objects;
 
 /** Immutable table metadata connecting logical schema to physical storage. */
 public final class TableMeta {
@@ -20,12 +20,24 @@ public final class TableMeta {
         this.fileId = Objects.requireNonNull(fileId, "fileId");
     }
 
-    public TableId id() { return id; }
-    public String name() { return name; }
-    public Schema schema() { return schema; }
-    public FileId fileId() { return fileId; }
+    public TableId id() {
+        return id;
+    }
 
-    @Override public String toString() {
+    public String name() {
+        return name;
+    }
+
+    public Schema schema() {
+        return schema;
+    }
+
+    public FileId fileId() {
+        return fileId;
+    }
+
+    @Override
+    public String toString() {
         return "TableMeta{" + id + ", name='" + name + '\'' + ", fileId=" + fileId + '}';
     }
 }

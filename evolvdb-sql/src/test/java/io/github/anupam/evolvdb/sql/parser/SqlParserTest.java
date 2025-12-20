@@ -9,18 +9,18 @@ class SqlParserTest {
 
     @Test
     void testParseCreateTable_basic() {
-            String sql = "CREATE TABLE users (id INT, name VARCHAR(10), active BOOLEAN)";
-            SqlParser p = new SqlParser();
-            AstNode node = p.parse(sql);
-            assertTrue(node instanceof CreateTable);
-            CreateTable ct = (CreateTable) node;
-            assertEquals("users", ct.tableName());
-            assertEquals(3, ct.columns().size());
-            assertEquals("id", ct.columns().get(0).name());
-            assertEquals(io.github.anupam.evolvdb.types.Type.INT, ct.columns().get(0).type());
-            assertEquals("name", ct.columns().get(1).name());
-            assertEquals(io.github.anupam.evolvdb.types.Type.VARCHAR, ct.columns().get(1).type());
-            assertEquals(10, ct.columns().get(1).length());
+        String sql = "CREATE TABLE users (id INT, name VARCHAR(10), active BOOLEAN)";
+        SqlParser p = new SqlParser();
+        AstNode node = p.parse(sql);
+        assertTrue(node instanceof CreateTable);
+        CreateTable ct = (CreateTable) node;
+        assertEquals("users", ct.tableName());
+        assertEquals(3, ct.columns().size());
+        assertEquals("id", ct.columns().get(0).name());
+        assertEquals(io.github.anupam.evolvdb.types.Type.INT, ct.columns().get(0).type());
+        assertEquals("name", ct.columns().get(1).name());
+        assertEquals(io.github.anupam.evolvdb.types.Type.VARCHAR, ct.columns().get(1).type());
+        assertEquals(10, ct.columns().get(1).length());
     }
 
     @Test

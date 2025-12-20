@@ -1,13 +1,5 @@
 package io.github.anupam.evolvdb.planner.analyzer;
 
-import io.github.anupam.evolvdb.catalog.CatalogManager;
-import io.github.anupam.evolvdb.catalog.TableMeta;
-import io.github.anupam.evolvdb.planner.logical.*;
-import io.github.anupam.evolvdb.sql.ast.*;
-import io.github.anupam.evolvdb.types.ColumnMeta;
-import io.github.anupam.evolvdb.types.Schema;
-import io.github.anupam.evolvdb.types.Type;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,6 +8,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+
+import io.github.anupam.evolvdb.catalog.CatalogManager;
+import io.github.anupam.evolvdb.catalog.TableMeta;
+import io.github.anupam.evolvdb.planner.logical.*;
+import io.github.anupam.evolvdb.sql.ast.*;
+import io.github.anupam.evolvdb.types.ColumnMeta;
+import io.github.anupam.evolvdb.types.Schema;
+import io.github.anupam.evolvdb.types.Type;
 
 /** Binds SQL AST to a logical plan using the catalog for name/type resolution. */
 public final class Binder {
@@ -28,18 +28,21 @@ public final class Binder {
         if (stmt instanceof Update upd) return bindUpdate(upd, catalog);
         if (stmt instanceof Delete del) return bindDelete(del, catalog);
         if (stmt instanceof CreateTable || stmt instanceof DropTable) {
-            // DDL: planner is not responsible for execution here; return a no-op logical plan later if needed
+            // DDL: planner is not responsible for execution here; return a no-op logical plan later
+            // if needed
             throw new UnsupportedOperationException("DDL binding not implemented in planner");
         }
-        throw new IllegalArgumentException("Unsupported statement type: " + stmt.getClass().getSimpleName());
+        throw new IllegalArgumentException(
+                "Unsupported statement type: " + stmt.getClass().getSimpleName());
     }
 
     private LogicalPlan bindSelect(Select sel, CatalogManager catalog) {
         // Build binding environment for all FROM tables
         BindingEnv env = new BindingEnv();
         for (TableRef tr : sel.froms()) {
-            TableMeta tm = catalog.getTable(tr.tableName())
-                    .orElseThrow(() -> err(tr.pos(), "Unknown table: " + tr.tableName()));
+            TableMeta tm =
+                    catalog.getTable(tr.tableName())
+                            .orElseThrow(() -> err(tr.pos(), "Unknown table: " + tr.tableName()));
             env.add(tm.name(), tr.alias(), tm.schema(), tr.pos());
         }
 
@@ -68,7 +71,8 @@ public final class Binder {
                 Set<String> q = referencedQuals(e, env);
                 boolean touchesLeft = q.stream().anyMatch(leftQuals::contains);
                 boolean touchesRight = q.contains(right.qual());
-                boolean onlyLeftRight = q.stream().allMatch(x -> leftQuals.contains(x) || x.equals(right.qual()));
+                boolean onlyLeftRight =
+                        q.stream().allMatch(x -> leftQuals.contains(x) || x.equals(right.qual()));
                 if (touchesLeft && touchesRight && onlyLeftRight) joinConds.add(e);
                 else remain.add(e);
             }
@@ -76,8 +80,11 @@ public final class Binder {
             Expr joinCond = combineConjuncts(joinConds);
 
             // Build join schema as qualified names to avoid duplicates
-            Schema joinSchema = concatQualifiedSchemas(leftQuals, tabs.get(0), plan.schema(), right);
-            plan = new LogicalJoin(plan, rightScan, LogicalJoin.JoinType.INNER, joinCond, joinSchema);
+            Schema joinSchema =
+                    concatQualifiedSchemas(leftQuals, tabs.get(0), plan.schema(), right);
+            plan =
+                    new LogicalJoin(
+                            plan, rightScan, LogicalJoin.JoinType.INNER, joinCond, joinSchema);
             leftQuals.add(right.qual());
         }
 
@@ -108,7 +115,8 @@ public final class Binder {
                 String outName = it.alias();
                 if (outName == null) {
                     if (expr instanceof ColumnRef cr) outName = cr.column();
-                    else if (expr instanceof FuncCall fc) outName = fc.name().toLowerCase() + (fc.starArg() ? "_*" : "");
+                    else if (expr instanceof FuncCall fc)
+                        outName = fc.name().toLowerCase() + (fc.starArg() ? "_*" : "");
                     else outName = "expr" + (++idx);
                 }
                 outName = uniquify(outName, expr, usedNames, env);
@@ -118,7 +126,8 @@ public final class Binder {
                 } else {
                     // Non-aggregate expr must be group-invariant: all columns ⊆ groupCols
                     Set<String> used = referencedColumns(expr, env);
-                    if (!groupCols.containsAll(used)) throw err(expr.pos(), "Non-aggregated columns must appear in GROUP BY");
+                    if (!groupCols.containsAll(used))
+                        throw err(expr.pos(), "Non-aggregated columns must appear in GROUP BY");
                     cm = inferOutputColumn(expr, outName, env);
                 }
                 outs.add(new ProjectItem(expr, outName));
@@ -174,8 +183,9 @@ public final class Binder {
     }
 
     private LogicalPlan bindInsert(Insert ins, CatalogManager catalog) {
-        TableMeta tm = catalog.getTable(ins.tableName())
-                .orElseThrow(() -> err(ins.pos(), "Unknown table: " + ins.tableName()));
+        TableMeta tm =
+                catalog.getTable(ins.tableName())
+                        .orElseThrow(() -> err(ins.pos(), "Unknown table: " + ins.tableName()));
         Schema schema = tm.schema();
 
         List<ColumnMeta> targetCols = new ArrayList<>();
@@ -191,8 +201,9 @@ public final class Binder {
     }
 
     private LogicalPlan bindUpdate(Update upd, CatalogManager catalog) {
-        TableMeta tm = catalog.getTable(upd.tableName())
-                .orElseThrow(() -> err(upd.pos(), "Unknown table: " + upd.tableName()));
+        TableMeta tm =
+                catalog.getTable(upd.tableName())
+                        .orElseThrow(() -> err(upd.pos(), "Unknown table: " + upd.tableName()));
         Schema schema = tm.schema();
 
         BindingEnv env = new BindingEnv();
@@ -213,8 +224,9 @@ public final class Binder {
     }
 
     private LogicalPlan bindDelete(Delete del, CatalogManager catalog) {
-        TableMeta tm = catalog.getTable(del.tableName())
-                .orElseThrow(() -> err(del.pos(), "Unknown table: " + del.tableName()));
+        TableMeta tm =
+                catalog.getTable(del.tableName())
+                        .orElseThrow(() -> err(del.pos(), "Unknown table: " + del.tableName()));
         Schema schema = tm.schema();
 
         BindingEnv env = new BindingEnv();
@@ -256,7 +268,9 @@ public final class Binder {
         } else if (expr instanceof LogicalExpr) {
             t = Type.BOOLEAN;
         } else {
-            throw err(expr.pos(), "Unsupported expression in projection: " + expr.getClass().getSimpleName());
+            throw err(
+                    expr.pos(),
+                    "Unsupported expression in projection: " + expr.getClass().getSimpleName());
         }
         return new ColumnMeta(name, t, len);
     }
@@ -267,10 +281,13 @@ public final class Binder {
             // COUNT(*|expr) -> BIGINT
             return new ColumnMeta(name, Type.BIGINT, null);
         }
-        if (fc.args().size() != 1 || fc.starArg()) throw err(fc.pos(), "Aggregate requires one argument");
+        if (fc.args().size() != 1 || fc.starArg())
+            throw err(fc.pos(), "Aggregate requires one argument");
         ColumnMeta arg = inferOutputColumn(fc.args().get(0), name, env);
         return switch (fn) {
-            case "SUM" -> new ColumnMeta(name, (arg.type() == Type.FLOAT) ? Type.FLOAT : Type.BIGINT, null);
+            case "SUM" ->
+                    new ColumnMeta(
+                            name, (arg.type() == Type.FLOAT) ? Type.FLOAT : Type.BIGINT, null);
             case "AVG" -> new ColumnMeta(name, Type.FLOAT, null);
             case "MIN" -> new ColumnMeta(name, arg.type(), arg.length());
             case "MAX" -> new ColumnMeta(name, arg.type(), arg.length());
@@ -293,8 +310,7 @@ public final class Binder {
     }
 
     private static ColumnMeta findColumn(Schema schema, String name, SourcePos pos) {
-        for (ColumnMeta cm : schema.columns())
-            if (cm.name().equalsIgnoreCase(name)) return cm;
+        for (ColumnMeta cm : schema.columns()) if (cm.name().equalsIgnoreCase(name)) return cm;
         throw err(pos, "Unknown column: " + name);
     }
 
@@ -302,11 +318,14 @@ public final class Binder {
         if (expr instanceof ColumnRef cr) {
             resolveColumn(cr, env); // throws if not resolvable (unknown or ambiguous)
         } else if (expr instanceof BinaryExpr be) {
-            validateExpr(be.left(), env); validateExpr(be.right(), env);
+            validateExpr(be.left(), env);
+            validateExpr(be.right(), env);
         } else if (expr instanceof LogicalExpr le) {
-            validateExpr(le.left(), env); if (le.right() != null) validateExpr(le.right(), env);
+            validateExpr(le.left(), env);
+            if (le.right() != null) validateExpr(le.right(), env);
         } else if (expr instanceof ComparisonExpr ce) {
-            validateExpr(ce.left(), env); validateExpr(ce.right(), env);
+            validateExpr(ce.left(), env);
+            validateExpr(ce.right(), env);
         } else if (expr instanceof FuncCall fc) {
             // validate args
             for (Expr a : fc.args()) validateExpr(a, env);
@@ -316,15 +335,36 @@ public final class Binder {
 
     // --- Helpers for multi-table binding ---
     private static final class TableBinding {
-        final String name; final String alias; final Schema schema; final SourcePos pos;
+        final String name;
+        final String alias;
+        final Schema schema;
+        final SourcePos pos;
+
         TableBinding(String name, String alias, Schema schema, SourcePos pos) {
-            this.name = name; this.alias = alias; this.schema = schema; this.pos = pos;
+            this.name = name;
+            this.alias = alias;
+            this.schema = schema;
+            this.pos = pos;
         }
-        String qual() { return (alias != null ? alias : name).toLowerCase(); }
-        String preferredQualifier() { return alias != null ? alias : name; }
+
+        String qual() {
+            return (alias != null ? alias : name).toLowerCase();
+        }
+
+        String preferredQualifier() {
+            return alias != null ? alias : name;
+        }
     }
 
-    private static final class ResolvedColumn { final TableBinding tbl; final ColumnMeta col; ResolvedColumn(TableBinding t, ColumnMeta c) { this.tbl = t; this.col = c; } }
+    private static final class ResolvedColumn {
+        final TableBinding tbl;
+        final ColumnMeta col;
+
+        ResolvedColumn(TableBinding t, ColumnMeta c) {
+            this.tbl = t;
+            this.col = c;
+        }
+    }
 
     private static final class BindingEnv {
         final List<TableBinding> tables = new ArrayList<>();
@@ -333,16 +373,32 @@ public final class Binder {
         void add(String name, String alias, Schema schema, SourcePos pos) {
             TableBinding tb = new TableBinding(name, alias, schema, pos);
             String q = tb.qual();
-            if (byQual.containsKey(q)) throw new IllegalArgumentException("Duplicate table alias/name: " + (alias != null ? alias : name) + " at " + pos.line() + ":" + pos.column());
+            if (byQual.containsKey(q))
+                throw new IllegalArgumentException(
+                        "Duplicate table alias/name: "
+                                + (alias != null ? alias : name)
+                                + " at "
+                                + pos.line()
+                                + ":"
+                                + pos.column());
             tables.add(tb);
             byQual.put(q, tb);
         }
 
         ResolvedColumn resolveQualified(String table, String col, SourcePos pos) {
             TableBinding tb = byQual.get(table.toLowerCase());
-            if (tb == null) throw new IllegalArgumentException("Unknown table qualifier: " + table + " at " + pos.line() + ":" + pos.column());
-            for (ColumnMeta cm : tb.schema.columns()) if (cm.name().equalsIgnoreCase(col)) return new ResolvedColumn(tb, cm);
-            throw new IllegalArgumentException("Unknown column: " + col + " at " + pos.line() + ":" + pos.column());
+            if (tb == null)
+                throw new IllegalArgumentException(
+                        "Unknown table qualifier: "
+                                + table
+                                + " at "
+                                + pos.line()
+                                + ":"
+                                + pos.column());
+            for (ColumnMeta cm : tb.schema.columns())
+                if (cm.name().equalsIgnoreCase(col)) return new ResolvedColumn(tb, cm);
+            throw new IllegalArgumentException(
+                    "Unknown column: " + col + " at " + pos.line() + ":" + pos.column());
         }
 
         ResolvedColumn resolveUnqualified(String col, SourcePos pos) {
@@ -350,12 +406,21 @@ public final class Binder {
             for (TableBinding tb : tables) {
                 for (ColumnMeta cm : tb.schema.columns()) {
                     if (cm.name().equalsIgnoreCase(col)) {
-                        if (found != null) throw new IllegalArgumentException("Ambiguous column: " + col + " at " + pos.line() + ":" + pos.column());
+                        if (found != null)
+                            throw new IllegalArgumentException(
+                                    "Ambiguous column: "
+                                            + col
+                                            + " at "
+                                            + pos.line()
+                                            + ":"
+                                            + pos.column());
                         found = new ResolvedColumn(tb, cm);
                     }
                 }
             }
-            if (found == null) throw new IllegalArgumentException("Unknown column: " + col + " at " + pos.line() + ":" + pos.column());
+            if (found == null)
+                throw new IllegalArgumentException(
+                        "Unknown column: " + col + " at " + pos.line() + ":" + pos.column());
             return found;
         }
     }
@@ -365,11 +430,13 @@ public final class Binder {
         collectQuals(expr, env, s);
         return s;
     }
+
     private Set<String> referencedColumns(Expr expr, BindingEnv env) {
         Set<String> s = new HashSet<>();
         collectCols(expr, env, s);
         return s;
     }
+
     private void collectQuals(Expr e, BindingEnv env, Set<String> out) {
         if (e instanceof ColumnRef cr) {
             if (cr.table() != null) out.add(cr.table().toLowerCase());
@@ -378,28 +445,36 @@ public final class Binder {
                 out.add(rc.tbl.qual());
             }
         } else if (e instanceof BinaryExpr be) {
-            collectQuals(be.left(), env, out); collectQuals(be.right(), env, out);
+            collectQuals(be.left(), env, out);
+            collectQuals(be.right(), env, out);
         } else if (e instanceof LogicalExpr le) {
-            collectQuals(le.left(), env, out); if (le.right() != null) collectQuals(le.right(), env, out);
+            collectQuals(le.left(), env, out);
+            if (le.right() != null) collectQuals(le.right(), env, out);
         } else if (e instanceof ComparisonExpr ce) {
-            collectQuals(ce.left(), env, out); collectQuals(ce.right(), env, out);
+            collectQuals(ce.left(), env, out);
+            collectQuals(ce.right(), env, out);
         } else if (e instanceof FuncCall fc) {
             for (Expr a : fc.args()) collectQuals(a, env, out);
         }
     }
+
     private void collectCols(Expr e, BindingEnv env, Set<String> out) {
         if (e instanceof ColumnRef cr) {
-            if (cr.table() != null) out.add(cr.table().toLowerCase() + "." + cr.column().toLowerCase());
+            if (cr.table() != null)
+                out.add(cr.table().toLowerCase() + "." + cr.column().toLowerCase());
             else {
                 ResolvedColumn rc = env.resolveUnqualified(cr.column(), e.pos());
                 out.add(rc.tbl.qual() + "." + rc.col.name().toLowerCase());
             }
         } else if (e instanceof BinaryExpr be) {
-            collectCols(be.left(), env, out); collectCols(be.right(), env, out);
+            collectCols(be.left(), env, out);
+            collectCols(be.right(), env, out);
         } else if (e instanceof LogicalExpr le) {
-            collectCols(le.left(), env, out); if (le.right() != null) collectCols(le.right(), env, out);
+            collectCols(le.left(), env, out);
+            if (le.right() != null) collectCols(le.right(), env, out);
         } else if (e instanceof ComparisonExpr ce) {
-            collectCols(ce.left(), env, out); collectCols(ce.right(), env, out);
+            collectCols(ce.left(), env, out);
+            collectCols(ce.right(), env, out);
         } else if (e instanceof FuncCall fc) {
             for (Expr a : fc.args()) collectCols(a, env, out);
         }
@@ -415,6 +490,7 @@ public final class Binder {
         }
         return out;
     }
+
     private Expr combineConjuncts(List<Expr> list) {
         if (list.isEmpty()) return null;
         Expr cur = list.get(0);
@@ -428,23 +504,31 @@ public final class Binder {
         for (SelectItem it : items) if (!it.isStar() && containsAggregate(it.expr())) return true;
         return false;
     }
+
     private boolean containsAggregate(Expr e) {
         if (e instanceof FuncCall fc) {
             String fn = fc.name().toUpperCase();
-            return fn.equals("COUNT") || fn.equals("SUM") || fn.equals("AVG") || fn.equals("MIN") || fn.equals("MAX");
+            return fn.equals("COUNT")
+                    || fn.equals("SUM")
+                    || fn.equals("AVG")
+                    || fn.equals("MIN")
+                    || fn.equals("MAX");
         } else if (e instanceof BinaryExpr be) {
             return containsAggregate(be.left()) || containsAggregate(be.right());
         } else if (e instanceof LogicalExpr le) {
-            return containsAggregate(le.left()) || (le.right() != null && containsAggregate(le.right()));
+            return containsAggregate(le.left())
+                    || (le.right() != null && containsAggregate(le.right()));
         } else if (e instanceof ComparisonExpr ce) {
             return containsAggregate(ce.left()) || containsAggregate(ce.right());
         }
         return false;
     }
 
-    private Schema concatQualifiedSchemas(Set<String> leftQuals, TableBinding leftHead, Schema leftSchema, TableBinding right) {
+    private Schema concatQualifiedSchemas(
+            Set<String> leftQuals, TableBinding leftHead, Schema leftSchema, TableBinding right) {
         List<ColumnMeta> cols = new ArrayList<>();
-        // We don't have mapping of quals to schema in left plan here; conservatively qualify by known leftQuals order is not preserved; use left schema as-is
+        // We don't have mapping of quals to schema in left plan here; conservatively qualify by
+        // known leftQuals order is not preserved; use left schema as-is
         // Assume left schema already unique; just carry over
         cols.addAll(leftSchema.columns());
         for (ColumnMeta cm : right.schema.columns()) {
@@ -462,9 +546,10 @@ public final class Binder {
         String name = base;
         if (!used.add(name.toLowerCase())) {
             if (expr instanceof ColumnRef cr) {
-                ResolvedColumn rc = (cr.table() != null)
-                        ? env.resolveQualified(cr.table(), cr.column(), expr.pos())
-                        : env.resolveUnqualified(cr.column(), expr.pos());
+                ResolvedColumn rc =
+                        (cr.table() != null)
+                                ? env.resolveQualified(cr.table(), cr.column(), expr.pos())
+                                : env.resolveUnqualified(cr.column(), expr.pos());
                 name = rc.tbl.preferredQualifier() + "." + rc.col.name();
                 int i = 1;
                 while (!used.add(name.toLowerCase())) name = name + "_" + (i++);
