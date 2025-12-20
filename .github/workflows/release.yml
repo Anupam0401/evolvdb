@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    name: Build and Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: 17
+        distribution: 'temurin'
+        cache: gradle
+    
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+    
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Build release artifacts
+      run: ./gradlew clean build -x test --no-daemon
+    
+    - name: Run all tests
+      run: ./gradlew test --no-daemon
+    
+    - name: Create distribution
+      run: ./gradlew assembleDist --no-daemon
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Extract changelog for this version from docs if available
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        echo "## Changes in version ${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
+        git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 HEAD^)..HEAD >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release v${{ steps.get_version.outputs.VERSION }}
+        body: ${{ steps.changelog.outputs.CHANGELOG }}
+        draft: false
+        prerelease: false
+        files: |
+          evolvdb-cli/build/distributions/*.zip
+          evolvdb-cli/build/distributions/*.tar
+          **/build/libs/*-${{ steps.get_version.outputs.VERSION }}.jar
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
