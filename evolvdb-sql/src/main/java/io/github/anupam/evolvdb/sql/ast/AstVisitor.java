@@ -8,6 +8,8 @@ public interface AstVisitor<R, C> {
     default R visitDropTable(DropTable node, C context) { return visitNode(node, context); }
     default R visitInsert(Insert node, C context) { return visitNode(node, context); }
     default R visitSelect(Select node, C context) { return visitNode(node, context); }
+    default R visitUpdate(Update node, C context) { return visitNode(node, context); }
+    default R visitDelete(Delete node, C context) { return visitNode(node, context); }
 
     default R visitLiteral(Literal node, C context) { return visitNode(node, context); }
     default R visitColumnRef(ColumnRef node, C context) { return visitNode(node, context); }

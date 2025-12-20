@@ -12,12 +12,14 @@ import io.github.anupam.evolvdb.exec.plan.SeqScanPlan;
 import io.github.anupam.evolvdb.exec.plan.SortMergeJoinPlan;
 import io.github.anupam.evolvdb.optimizer.rewrite.ExprUtils;
 import io.github.anupam.evolvdb.planner.logical.LogicalAggregate;
+import io.github.anupam.evolvdb.planner.logical.LogicalDelete;
 import io.github.anupam.evolvdb.planner.logical.LogicalFilter;
 import io.github.anupam.evolvdb.planner.logical.LogicalInsert;
 import io.github.anupam.evolvdb.planner.logical.LogicalJoin;
 import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 import io.github.anupam.evolvdb.planner.logical.LogicalProject;
 import io.github.anupam.evolvdb.planner.logical.LogicalScan;
+import io.github.anupam.evolvdb.planner.logical.LogicalUpdate;
 import io.github.anupam.evolvdb.sql.ast.ColumnRef;
 import io.github.anupam.evolvdb.sql.ast.ComparisonExpr;
 import io.github.anupam.evolvdb.sql.ast.Expr;
@@ -137,6 +139,26 @@ public final class Rules {
         @Override public List<PhysicalPlan> apply(LogicalPlan logical, List<PhysicalPlan> optimizedChildren, ExecContext ctx) {
             LogicalInsert i = (LogicalInsert) logical;
             return List.of(new InsertPlan(i));
+        }
+    }
+
+    // Update
+    public static final class UpdateRule implements PhysicalRule {
+        @Override public boolean matches(LogicalPlan logical) { return logical instanceof LogicalUpdate; }
+        @Override public List<PhysicalPlan> apply(LogicalPlan logical, List<PhysicalPlan> optimizedChildren, ExecContext ctx) {
+            LogicalUpdate u = (LogicalUpdate) logical;
+            PhysicalPlan c = optimizedChildren.get(0);
+            return List.of(new io.github.anupam.evolvdb.exec.plan.UpdatePlan(c, u));
+        }
+    }
+
+    // Delete
+    public static final class DeleteRule implements PhysicalRule {
+        @Override public boolean matches(LogicalPlan logical) { return logical instanceof LogicalDelete; }
+        @Override public List<PhysicalPlan> apply(LogicalPlan logical, List<PhysicalPlan> optimizedChildren, ExecContext ctx) {
+            LogicalDelete d = (LogicalDelete) logical;
+            PhysicalPlan c = optimizedChildren.get(0);
+            return List.of(new io.github.anupam.evolvdb.exec.plan.DeletePlan(c, d));
         }
     }
 }

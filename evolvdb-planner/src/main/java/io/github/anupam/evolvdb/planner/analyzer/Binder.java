@@ -25,6 +25,8 @@ public final class Binder {
         Objects.requireNonNull(catalog, "catalog");
         if (stmt instanceof Select sel) return bindSelect(sel, catalog);
         if (stmt instanceof Insert ins) return bindInsert(ins, catalog);
+        if (stmt instanceof Update upd) return bindUpdate(upd, catalog);
+        if (stmt instanceof Delete del) return bindDelete(del, catalog);
         if (stmt instanceof CreateTable || stmt instanceof DropTable) {
             // DDL: planner is not responsible for execution here; return a no-op logical plan later if needed
             throw new UnsupportedOperationException("DDL binding not implemented in planner");
@@ -186,6 +188,46 @@ public final class Binder {
             }
         }
         return new LogicalInsert(tm.name(), targetCols, ins.rows(), schema);
+    }
+
+    private LogicalPlan bindUpdate(Update upd, CatalogManager catalog) {
+        TableMeta tm = catalog.getTable(upd.tableName())
+                .orElseThrow(() -> err(upd.pos(), "Unknown table: " + upd.tableName()));
+        Schema schema = tm.schema();
+
+        BindingEnv env = new BindingEnv();
+        env.add(tm.name(), null, schema, upd.pos());
+
+        LogicalPlan plan = new LogicalScan(tm.name(), null, schema);
+
+        if (upd.where() != null) {
+            validateExpr(upd.where(), env);
+            plan = new LogicalFilter(plan, upd.where());
+        }
+
+        for (Expr val : upd.assignments().values()) {
+            validateExpr(val, env);
+        }
+
+        return new LogicalUpdate(plan, tm.name(), upd.assignments(), schema);
+    }
+
+    private LogicalPlan bindDelete(Delete del, CatalogManager catalog) {
+        TableMeta tm = catalog.getTable(del.tableName())
+                .orElseThrow(() -> err(del.pos(), "Unknown table: " + del.tableName()));
+        Schema schema = tm.schema();
+
+        BindingEnv env = new BindingEnv();
+        env.add(tm.name(), null, schema, del.pos());
+
+        LogicalPlan plan = new LogicalScan(tm.name(), null, schema);
+
+        if (del.where() != null) {
+            validateExpr(del.where(), env);
+            plan = new LogicalFilter(plan, del.where());
+        }
+
+        return new LogicalDelete(plan, tm.name(), schema);
     }
 
     private ColumnMeta inferOutputColumn(Expr expr, String name, BindingEnv env) {

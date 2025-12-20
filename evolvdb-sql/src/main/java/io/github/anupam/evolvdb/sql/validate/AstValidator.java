@@ -8,12 +8,14 @@ import io.github.anupam.evolvdb.sql.ast.ColumnDef;
 import io.github.anupam.evolvdb.sql.ast.ColumnRef;
 import io.github.anupam.evolvdb.sql.ast.ComparisonExpr;
 import io.github.anupam.evolvdb.sql.ast.CreateTable;
+import io.github.anupam.evolvdb.sql.ast.Delete;
 import io.github.anupam.evolvdb.sql.ast.DropTable;
 import io.github.anupam.evolvdb.sql.ast.Expr;
 import io.github.anupam.evolvdb.sql.ast.Insert;
 import io.github.anupam.evolvdb.sql.ast.Literal;
 import io.github.anupam.evolvdb.sql.ast.LogicalExpr;
 import io.github.anupam.evolvdb.sql.ast.Select;
+import io.github.anupam.evolvdb.sql.ast.Update;
 import io.github.anupam.evolvdb.sql.ast.SelectItem;
 import io.github.anupam.evolvdb.sql.ast.SourcePos;
 import io.github.anupam.evolvdb.types.ColumnMeta;
@@ -37,6 +39,8 @@ public final class AstValidator {
             case DropTable dt -> validateDropTable(dt, catalog);
             case Insert ins -> validateInsert(ins, catalog);
             case Select sel -> validateSelect(sel, catalog);
+            case Update upd -> validateUpdate(upd, catalog);
+            case Delete del -> validateDelete(del, catalog);
             default -> {
             }
         }
@@ -128,6 +132,64 @@ public final class AstValidator {
             if (!it.isStar()) checker.accept(it.expr());
         }
         if (sel.where() != null) checker.accept(sel.where());
+    }
+
+    private void validateUpdate(Update upd, CatalogManager catalog) {
+        TableMeta tm = requireTable(catalog, upd.tableName(), upd.pos());
+        Schema schema = tm.schema();
+        Set<String> colNames = new HashSet<>();
+        for (ColumnMeta cm : schema.columns()) colNames.add(cm.name().toLowerCase(Locale.ROOT));
+
+        for (String col : upd.assignments().keySet()) {
+            if (!colNames.contains(col.toLowerCase(Locale.ROOT))) {
+                throw err(upd.pos(), "Unknown column in UPDATE: " + col);
+            }
+        }
+
+        Consumer<Expr> checker = createExprChecker(upd.tableName(), null, colNames, upd.pos());
+        for (Expr expr : upd.assignments().values()) {
+            checker.accept(expr);
+        }
+        if (upd.where() != null) checker.accept(upd.where());
+    }
+
+    private void validateDelete(Delete del, CatalogManager catalog) {
+        TableMeta tm = requireTable(catalog, del.tableName(), del.pos());
+        Schema schema = tm.schema();
+        Set<String> colNames = new HashSet<>();
+        for (ColumnMeta cm : schema.columns()) colNames.add(cm.name().toLowerCase(Locale.ROOT));
+
+        if (del.where() != null) {
+            Consumer<Expr> checker = createExprChecker(del.tableName(), null, colNames, del.pos());
+            checker.accept(del.where());
+        }
+    }
+
+    private Consumer<Expr> createExprChecker(String tableName, String alias, Set<String> colNames, SourcePos pos) {
+        return new Consumer<>() {
+            @Override
+            public void accept(Expr expr) {
+                if (expr instanceof ColumnRef cr) {
+                    if (cr.table() != null) {
+                        String t = cr.table();
+                        boolean matches = t.equalsIgnoreCase(tableName) || (alias != null && t.equalsIgnoreCase(alias));
+                        if (!matches) throw err(cr.pos(), "Unknown table qualifier: " + t);
+                    }
+                    if (!colNames.contains(cr.column().toLowerCase(Locale.ROOT))) {
+                        throw err(cr.pos(), "Unknown column: " + cr.column());
+                    }
+                } else if (expr instanceof BinaryExpr be) {
+                    accept(be.left());
+                    accept(be.right());
+                } else if (expr instanceof LogicalExpr le) {
+                    accept(le.left());
+                    if (le.right() != null) accept(le.right());
+                } else if (expr instanceof ComparisonExpr ce) {
+                    accept(ce.left());
+                    accept(ce.right());
+                }
+            }
+        };
     }
 
     private TableMeta requireTable(CatalogManager catalog, String name, SourcePos pos) {

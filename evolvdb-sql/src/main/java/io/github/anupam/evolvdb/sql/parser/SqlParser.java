@@ -6,6 +6,7 @@ import io.github.anupam.evolvdb.sql.ast.ColumnDef;
 import io.github.anupam.evolvdb.sql.ast.ColumnRef;
 import io.github.anupam.evolvdb.sql.ast.ComparisonExpr;
 import io.github.anupam.evolvdb.sql.ast.CreateTable;
+import io.github.anupam.evolvdb.sql.ast.Delete;
 import io.github.anupam.evolvdb.sql.ast.DropTable;
 import io.github.anupam.evolvdb.sql.ast.Expr;
 import io.github.anupam.evolvdb.sql.ast.Insert;
@@ -16,6 +17,7 @@ import io.github.anupam.evolvdb.sql.ast.SelectItem;
 import io.github.anupam.evolvdb.sql.ast.SourcePos;
 import io.github.anupam.evolvdb.sql.ast.Statement;
 import io.github.anupam.evolvdb.sql.ast.TableRef;
+import io.github.anupam.evolvdb.sql.ast.Update;
 import io.github.anupam.evolvdb.types.Type;
 
 /**
@@ -46,7 +48,9 @@ public final class SqlParser {
             case DROP -> parseDropTable();
             case INSERT -> parseInsert();
             case SELECT -> parseSelect();
-            default -> throw error("Expected a statement (CREATE/DROP/INSERT/SELECT)");
+            case UPDATE -> parseUpdate();
+            case DELETE -> parseDelete();
+            default -> throw error("Expected a statement (CREATE/DROP/INSERT/SELECT/UPDATE/DELETE)");
         };
     }
 
@@ -132,6 +136,34 @@ public final class SqlParser {
             groupBy = groups;
         }
         return new Select(pos, items, froms, where, groupBy);
+    }
+
+    private Update parseUpdate() {
+        SourcePos pos = cur.pos();
+        expect(TokenType.UPDATE, "UPDATE");
+        String table = expectIdent("table name");
+        expect(TokenType.SET, "SET");
+        java.util.Map<String, Expr> assignments = new java.util.LinkedHashMap<>();
+        do {
+            String col = expectIdent("column name");
+            expect(TokenType.EQ, "=");
+            Expr val = parseExpr();
+            if (assignments.containsKey(col)) throw error("Duplicate assignment for column: " + col);
+            assignments.put(col, val);
+        } while (match(TokenType.COMMA));
+        Expr where = null;
+        if (match(TokenType.WHERE)) where = parseExpr();
+        return new Update(pos, table, assignments, where);
+    }
+
+    private Delete parseDelete() {
+        SourcePos pos = cur.pos();
+        expect(TokenType.DELETE, "DELETE");
+        expect(TokenType.FROM, "FROM");
+        String table = expectIdent("table name");
+        Expr where = null;
+        if (match(TokenType.WHERE)) where = parseExpr();
+        return new Delete(pos, table, where);
     }
 
     private SelectItem parseSelectItem() {

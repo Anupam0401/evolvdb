@@ -112,4 +112,18 @@ public final class DefaultCostModel implements CostModel {
         double io = Math.max(1, rows / 100.0);
         return Cost.of(r, cpu, io);
     }
+
+    @Override
+    public Cost costUpdate(double rows) {
+        double cpu = rows * 1.5;
+        double io = Math.max(1, rows / 100.0);
+        return Cost.of(rows, cpu, io);
+    }
+
+    @Override
+    public Cost costDelete(double rows) {
+        double cpu = rows;
+        double io = Math.max(1, rows / 100.0);
+        return Cost.of(rows, cpu, io);
+    }
 }

@@ -25,6 +25,9 @@ final class Tokenizer {
         KEYWORDS.put("FROM", TokenType.FROM);
         KEYWORDS.put("WHERE", TokenType.WHERE);
         KEYWORDS.put("AS", TokenType.AS);
+        KEYWORDS.put("UPDATE", TokenType.UPDATE);
+        KEYWORDS.put("DELETE", TokenType.DELETE);
+        KEYWORDS.put("SET", TokenType.SET);
         KEYWORDS.put("GROUP", TokenType.GROUP);
         KEYWORDS.put("BY", TokenType.BY);
         // booleans / logical

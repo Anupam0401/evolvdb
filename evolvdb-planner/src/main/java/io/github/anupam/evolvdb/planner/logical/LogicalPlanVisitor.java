@@ -7,4 +7,6 @@ public interface LogicalPlanVisitor<R, C> {
     R visitJoin(LogicalJoin join, C ctx);
     R visitAggregate(LogicalAggregate agg, C ctx);
     R visitInsert(LogicalInsert insert, C ctx);
+    R visitUpdate(LogicalUpdate update, C ctx);
+    R visitDelete(LogicalDelete delete, C ctx);
 }

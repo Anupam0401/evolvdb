@@ -47,6 +47,14 @@ public final class PhysicalPlanner {
         if (logical instanceof LogicalInsert i) {
             return new InsertExec(ctx.catalog(), i);
         }
+        if (logical instanceof LogicalUpdate u) {
+            PhysicalOperator c = plan(u.child(), ctx);
+            return new UpdateExec(c, ctx.catalog(), u);
+        }
+        if (logical instanceof LogicalDelete d) {
+            PhysicalOperator c = plan(d.child(), ctx);
+            return new DeleteExec(c, ctx.catalog(), d);
+        }
         throw new IllegalArgumentException("Unsupported logical node: " + logical.getClass().getSimpleName());
     }
 
@@ -57,7 +65,9 @@ public final class PhysicalPlanner {
                 new Rules.ProjectRule(),
                 new Rules.JoinRule(),
                 new Rules.AggregateRule(),
-                new Rules.InsertRule()
+                new Rules.InsertRule(),
+                new Rules.UpdateRule(),
+                new Rules.DeleteRule()
         );
     }
 

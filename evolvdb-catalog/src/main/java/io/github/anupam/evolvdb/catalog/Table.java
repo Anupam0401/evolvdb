@@ -46,4 +46,34 @@ public final class Table {
             @Override public Tuple next() { return RowCodec.decode(meta.schema(), it.next()); }
         };
     }
+
+    public Iterable<TupleWithRecordId> scanTuplesWithRecordIds() {
+        return () -> new Iterator<>() {
+            final Iterator<RecordId> it = heapFile.iterator();
+            @Override public boolean hasNext() { return it.hasNext(); }
+            @Override public TupleWithRecordId next() {
+                RecordId rid = it.next();
+                try {
+                    byte[] bytes = heapFile.read(rid);
+                    Tuple tuple = RowCodec.decode(meta.schema(), bytes);
+                    return new TupleWithRecordId(tuple, rid);
+                } catch (Exception e) {
+                    throw new IllegalStateException("Failed to read tuple", e);
+                }
+            }
+        };
+    }
+
+    public static final class TupleWithRecordId {
+        public final Tuple tuple;
+        public final RecordId recordId;
+        public TupleWithRecordId(Tuple tuple, RecordId recordId) {
+            this.tuple = tuple;
+            this.recordId = recordId;
+        }
+    }
+
+    public void delete(RecordId rid) throws IOException {
+        heapFile.delete(rid);
+    }
 }

@@ -22,4 +22,6 @@ public interface CostModel {
     Cost costSortMergeJoin(Cost left, Cost right, Expr predicate);
     Cost costAggregate(Cost child);
     Cost costInsert(int rows);
+    Cost costUpdate(double rows);
+    Cost costDelete(double rows);
 }
