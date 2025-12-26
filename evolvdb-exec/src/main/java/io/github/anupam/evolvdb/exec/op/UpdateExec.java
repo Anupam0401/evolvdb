@@ -7,6 +7,8 @@ import java.util.Map;
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.catalog.Table;
 import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
+import io.github.anupam.evolvdb.planner.logical.LogicalFilter;
+import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 import io.github.anupam.evolvdb.planner.logical.LogicalUpdate;
 import io.github.anupam.evolvdb.sql.ast.Expr;
 import io.github.anupam.evolvdb.types.ColumnMeta;
@@ -34,7 +36,6 @@ public final class UpdateExec implements PhysicalOperator {
     @Override
     public void open() throws Exception {
         this.table = catalog.openTable(update.tableName());
-        this.child.open();
         this.updatedCount = 0;
         this.executed = false;
     }
@@ -46,24 +47,36 @@ public final class UpdateExec implements PhysicalOperator {
         Schema schema = table.schema();
         Map<String, Expr> assignments = update.assignments();
 
-        Tuple childTuple;
-        while ((childTuple = child.next()) != null) {
-            List<Object> newValues = new ArrayList<>(schema.size());
+        // Extract WHERE filter from child plan
+        Expr whereFilter = extractFilter(update.child());
 
+        // Scan table with RecordIds and apply filter
+        for (Table.TupleWithRecordId twr : table.scanTuplesWithRecordIds()) {
+            // Check if tuple matches WHERE clause
+            if (whereFilter != null) {
+                Object result = evaluator.eval(whereFilter, twr.tuple, schema);
+                if (result == null || !((Boolean) result)) {
+                    continue; // Skip non-matching rows
+                }
+            }
+
+            // Apply assignments to create new tuple
+            List<Object> newValues = new ArrayList<>(schema.size());
             for (int i = 0; i < schema.columns().size(); i++) {
                 ColumnMeta col = schema.columns().get(i);
                 if (assignments.containsKey(col.name())) {
-                    Object value = evaluator.eval(assignments.get(col.name()), childTuple, schema);
+                    Object value = evaluator.eval(assignments.get(col.name()), twr.tuple, schema);
                     if (col.type() == Type.INT && value instanceof Long) {
                         value = ((Long) value).intValue();
                     }
                     newValues.add(value);
                 } else {
-                    newValues.add(childTuple.get(i));
+                    newValues.add(twr.tuple.get(i));
                 }
             }
 
             Tuple newTuple = new Tuple(schema, newValues);
+            table.update(twr.recordId, newTuple);
             updatedCount++;
         }
 
@@ -73,9 +86,16 @@ public final class UpdateExec implements PhysicalOperator {
         return new Tuple(resultSchema, List.of(updatedCount));
     }
 
+    private Expr extractFilter(LogicalPlan plan) {
+        if (plan instanceof LogicalFilter) {
+            LogicalFilter filter = (LogicalFilter) plan;
+            return filter.predicate();
+        }
+        return null;
+    }
+
     @Override
     public void close() throws Exception {
-        if (child != null) child.close();
         this.table = null;
         this.updatedCount = 0;
         this.executed = false;

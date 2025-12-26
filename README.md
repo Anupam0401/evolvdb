@@ -874,3 +874,7 @@ Diagrams are provided using Mermaid (flows, sequences, class relationships). All
 
 - Target: Java 21 LTS via Gradle toolchain
 - Development: you can use Java 23 locally; Gradle compiles against 21 for compatibility.
+
+
+
+SELECT * from table_1;
