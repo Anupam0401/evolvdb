@@ -70,9 +70,9 @@ public final class Database implements Closeable {
         }
 
         TransactionContext txnCtx =
-            new TransactionContext(
-                txnIdGenerator.getAndIncrement(),
-                TransactionContext.IsolationLevel.READ_COMMITTED);
+                new TransactionContext(
+                        txnIdGenerator.getAndIncrement(),
+                        TransactionContext.IsolationLevel.READ_COMMITTED);
 
         return ScopedValue.where(TxnScope.CURRENT, txnCtx).call(() -> executeDml(stmt));
     }
@@ -105,12 +105,12 @@ public final class Database implements Closeable {
 
     private QueryResult executeDdlDrop(DropTable dt) throws IOException {
         var meta =
-            catalogManager
-                .getTable(dt.tableName())
-                .orElseThrow(
-                    () ->
-                        new IllegalArgumentException(
-                            "Unknown table: " + dt.tableName()));
+                catalogManager
+                        .getTable(dt.tableName())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Unknown table: " + dt.tableName()));
         catalogManager.dropTable(meta.id());
         return QueryResult.ofMessage("Table '" + dt.tableName() + "' dropped.");
     }

@@ -35,7 +35,7 @@ subprojects {
     // Configure Spotless for code formatting
     configure<com.diffplug.gradle.spotless.SpotlessExtension> {
         java {
-            googleJavaFormat("1.25.2").aosp().reflowLongStrings()
+            googleJavaFormat("1.35.0").aosp().reflowLongStrings()
 
             importOrder("java", "javax", "", "\\#")
             removeUnusedImports()

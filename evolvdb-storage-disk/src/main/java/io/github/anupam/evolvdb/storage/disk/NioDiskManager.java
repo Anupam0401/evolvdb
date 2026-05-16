@@ -15,9 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import io.github.anupam.evolvdb.common.DbException;
 import io.github.anupam.evolvdb.config.DbConfig;
 
-/**
- * NIO-based DiskManager. Provides page-level I/O with fixed page size using MemorySegment.
- */
+/** NIO-based DiskManager. Provides page-level I/O with fixed page size using MemorySegment. */
 public final class NioDiskManager implements DiskManager {
     private final DbConfig config;
     private final int pageSize;
@@ -104,25 +102,25 @@ public final class NioDiskManager implements DiskManager {
 
     private FileChannel openOrCreate(FileId fileId) throws IOException {
         return openFiles.computeIfAbsent(
-            fileId,
-            id -> {
-                try {
-                    Path p = resolvePath(id);
-                    return FileChannel.open(
-                        p,
-                        EnumSet.of(
-                            StandardOpenOption.CREATE,
-                            StandardOpenOption.READ,
-                            StandardOpenOption.WRITE));
-                } catch (IOException e) {
-                    throw new DbException("Failed to open file: " + id.name(), e);
-                }
-            });
+                fileId,
+                id -> {
+                    try {
+                        Path p = resolvePath(id);
+                        return FileChannel.open(
+                                p,
+                                EnumSet.of(
+                                        StandardOpenOption.CREATE,
+                                        StandardOpenOption.READ,
+                                        StandardOpenOption.WRITE));
+                    } catch (IOException e) {
+                        throw new DbException("Failed to open file: " + id.name(), e);
+                    }
+                });
     }
 
     private Path resolvePath(FileId fileId) {
         String fileName =
-            fileId.name().endsWith(".evolv") ? fileId.name() : fileId.name() + ".evolv";
+                fileId.name().endsWith(".evolv") ? fileId.name() : fileId.name() + ".evolv";
         return config.dataDir().resolve(fileName);
     }
 
@@ -137,7 +135,7 @@ public final class NioDiskManager implements DiskManager {
     }
 
     private static void readFully(FileChannel ch, long pos, ByteBuffer dst, int len)
-        throws IOException {
+            throws IOException {
         int read = 0;
         while (read < len) {
             int n = ch.read(dst, pos + read);
