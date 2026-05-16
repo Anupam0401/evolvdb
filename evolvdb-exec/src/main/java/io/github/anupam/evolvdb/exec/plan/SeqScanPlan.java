@@ -18,6 +18,10 @@ public final class SeqScanPlan implements PhysicalPlan {
         this.schema = schema;
     }
 
+    public String tableName() {
+        return tableName;
+    }
+
     @Override
     public Schema schema() {
         return schema;

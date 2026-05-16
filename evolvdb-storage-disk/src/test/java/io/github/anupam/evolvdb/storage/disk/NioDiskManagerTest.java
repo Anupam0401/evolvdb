@@ -1,7 +1,8 @@
 package io.github.anupam.evolvdb.storage.disk;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
@@ -29,7 +30,7 @@ public class NioDiskManagerTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (IOException ignored) {
+                                    } catch (IOException _) {
                                     }
                                 });
             }
@@ -39,7 +40,8 @@ public class NioDiskManagerTest {
     @Test
     void givenAllocatedPages_whenWriteAndRead_thenBytesRoundTrip() throws Exception {
         var cfg = newConfig();
-        try (var dm = new NioDiskManager(cfg)) {
+        try (var dm = new NioDiskManager(cfg);
+                var arena = Arena.ofConfined()) {
             var file = new FileId("table1");
             var p0 = dm.allocatePage(file);
             var p1 = dm.allocatePage(file);
@@ -51,16 +53,21 @@ public class NioDiskManagerTest {
             fillPattern(a, (byte) 1);
             fillPattern(b, (byte) 2);
 
-            dm.writePage(p0, ByteBuffer.wrap(a), 0);
-            dm.writePage(p1, ByteBuffer.wrap(b), 0);
+            MemorySegment srcA = arena.allocate(cfg.pageSize());
+            MemorySegment srcB = arena.allocate(cfg.pageSize());
+            srcA.copyFrom(MemorySegment.ofArray(a));
+            srcB.copyFrom(MemorySegment.ofArray(b));
 
-            ByteBuffer ra = ByteBuffer.allocate(cfg.pageSize());
-            ByteBuffer rb = ByteBuffer.allocate(cfg.pageSize());
-            dm.readPage(p0, ra);
-            dm.readPage(p1, rb);
+            dm.writePage(p0, srcA, 0);
+            dm.writePage(p1, srcB, 0);
 
-            assertArrayEquals(a, toArray(ra));
-            assertArrayEquals(b, toArray(rb));
+            MemorySegment dstA = arena.allocate(cfg.pageSize());
+            MemorySegment dstB = arena.allocate(cfg.pageSize());
+            dm.readPage(p0, dstA);
+            dm.readPage(p1, dstB);
+
+            assertArrayEquals(a, dstA.toArray(java.lang.foreign.ValueLayout.JAVA_BYTE));
+            assertArrayEquals(b, dstB.toArray(java.lang.foreign.ValueLayout.JAVA_BYTE));
         }
     }
 
@@ -72,27 +79,24 @@ public class NioDiskManagerTest {
         new Random(42).nextBytes(payload);
 
         PageId pid;
-        try (var dm = new NioDiskManager(cfg)) {
+        try (var dm = new NioDiskManager(cfg);
+                var arena = Arena.ofConfined()) {
             pid = dm.allocatePage(file);
-            dm.writePage(pid, ByteBuffer.wrap(payload), 0);
+            MemorySegment src = arena.allocate(cfg.pageSize());
+            src.copyFrom(MemorySegment.ofArray(payload));
+            dm.writePage(pid, src, 0);
             dm.sync();
         }
 
-        try (var dm2 = new NioDiskManager(cfg)) {
-            ByteBuffer read = ByteBuffer.allocate(cfg.pageSize());
-            dm2.readPage(pid, read);
-            assertArrayEquals(payload, toArray(read));
+        try (var dm2 = new NioDiskManager(cfg);
+                var arena = Arena.ofConfined()) {
+            MemorySegment dst = arena.allocate(cfg.pageSize());
+            dm2.readPage(pid, dst);
+            assertArrayEquals(payload, dst.toArray(java.lang.foreign.ValueLayout.JAVA_BYTE));
         }
     }
 
     private static void fillPattern(byte[] arr, byte value) {
         for (int i = 0; i < arr.length; i++) arr[i] = (byte) (value + i);
-    }
-
-    private static byte[] toArray(ByteBuffer buf) {
-        buf.flip();
-        byte[] out = new byte[buf.remaining()];
-        buf.get(out);
-        return out;
     }
 }

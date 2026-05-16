@@ -30,6 +30,8 @@ public enum TokenType {
     NOT,
     TRUE,
     FALSE,
+    NULL,
+    IS,
     INT,
     BIGINT,
     BOOLEAN,

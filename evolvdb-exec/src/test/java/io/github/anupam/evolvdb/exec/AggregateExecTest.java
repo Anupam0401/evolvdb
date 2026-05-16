@@ -41,7 +41,7 @@ public class AggregateExecTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (Exception ignored) {
+                                    } catch (Exception _) {
                                     }
                                 });
             }

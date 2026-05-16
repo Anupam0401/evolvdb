@@ -10,6 +10,7 @@ import io.github.anupam.evolvdb.sql.ast.Delete;
 import io.github.anupam.evolvdb.sql.ast.DropTable;
 import io.github.anupam.evolvdb.sql.ast.Expr;
 import io.github.anupam.evolvdb.sql.ast.Insert;
+import io.github.anupam.evolvdb.sql.ast.IsNullExpr;
 import io.github.anupam.evolvdb.sql.ast.Literal;
 import io.github.anupam.evolvdb.sql.ast.LogicalExpr;
 import io.github.anupam.evolvdb.sql.ast.Select;
@@ -73,7 +74,7 @@ public final class SqlParser {
                 String n = take(TokenType.NUMBER, "varchar length").lexeme();
                 try {
                     len = Integer.parseInt(n);
-                } catch (NumberFormatException e) {
+                } catch (NumberFormatException _) {
                     throw error("Invalid varchar length");
                 }
                 expect(TokenType.RPAREN, ")");
@@ -229,32 +230,42 @@ public final class SqlParser {
         switch (cur.type()) {
             case EQ -> {
                 advance();
-                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.EQ, left, parseAdd());
+                left = new ComparisonExpr(cur.pos(), ComparisonExpr.Op.EQ, left, parseAdd());
             }
             case NEQ -> {
                 advance();
-                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.NEQ, left, parseAdd());
+                left = new ComparisonExpr(cur.pos(), ComparisonExpr.Op.NEQ, left, parseAdd());
             }
             case LT -> {
                 advance();
-                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.LT, left, parseAdd());
+                left = new ComparisonExpr(cur.pos(), ComparisonExpr.Op.LT, left, parseAdd());
             }
             case LTE -> {
                 advance();
-                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.LTE, left, parseAdd());
+                left = new ComparisonExpr(cur.pos(), ComparisonExpr.Op.LTE, left, parseAdd());
             }
             case GT -> {
                 advance();
-                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.GT, left, parseAdd());
+                left = new ComparisonExpr(cur.pos(), ComparisonExpr.Op.GT, left, parseAdd());
             }
             case GTE -> {
                 advance();
-                return new ComparisonExpr(cur.pos(), ComparisonExpr.Op.GTE, left, parseAdd());
+                left = new ComparisonExpr(cur.pos(), ComparisonExpr.Op.GTE, left, parseAdd());
             }
-            default -> {
-                return left;
-            }
+            default -> {}
         }
+        if (cur.type() == TokenType.IS) {
+            SourcePos pos = cur.pos();
+            advance();
+            boolean negated = false;
+            if (cur.type() == TokenType.NOT) {
+                negated = true;
+                advance();
+            }
+            expect(TokenType.NULL, "Expected NULL after IS / IS NOT");
+            left = new IsNullExpr(pos, left, negated);
+        }
+        return left;
     }
 
     private Expr parseAdd() {
@@ -295,7 +306,7 @@ public final class SqlParser {
                     long l = Long.parseLong(lex);
                     Object v = (l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE) ? (int) l : l;
                     return new Literal(pos, v);
-                } catch (NumberFormatException e) {
+                } catch (NumberFormatException _) {
                     throw error("Invalid number");
                 }
             }
@@ -314,6 +325,11 @@ public final class SqlParser {
                 SourcePos pos = cur.pos();
                 advance();
                 return new Literal(pos, Boolean.FALSE);
+            }
+            case NULL -> {
+                SourcePos pos = cur.pos();
+                advance();
+                return new Literal(pos, null);
             }
             case IDENT -> {
                 SourcePos pos = cur.pos();

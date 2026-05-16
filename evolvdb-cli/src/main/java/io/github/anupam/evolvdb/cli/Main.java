@@ -1,20 +1,20 @@
 package io.github.anupam.evolvdb.cli;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Objects;
 
-import io.github.anupam.evolvdb.catalog.Table;
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.core.Database;
+import io.github.anupam.evolvdb.core.QueryResult;
 import io.github.anupam.evolvdb.types.ColumnMeta;
-import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Tuple;
-import io.github.anupam.evolvdb.types.Type;
 
 public final class Main {
+
     public static void main(String[] args) throws IOException {
         Path dataDir = resolveDataDir();
         DbConfig config =
@@ -22,50 +22,81 @@ public final class Main {
 
         Files.createDirectories(config.dataDir());
 
-        System.out.println("EvolvDB starting with config: " + config);
+        System.out.println("EvolvDB v1.0 — Interactive SQL Shell");
         System.out.println("Data directory: " + config.dataDir().toAbsolutePath());
+        System.out.println("Type SQL statements (end with ;), or \\q to quit.\n");
 
-        // Minimal demo: create Database, use Catalog to create/open a table, insert tuples and scan
-        try (Database db = new Database(config)) {
-            // M6: Catalog demo: create table users(id INT, name STRING), insert and scan
-            var schema =
-                    new Schema(
-                            List.of(
-                                    new ColumnMeta("id", Type.INT, null),
-                                    new ColumnMeta("name", Type.STRING, null)));
-            var cat = db.catalog();
-            var meta =
-                    cat.getTable("users")
-                            .orElseGet(
-                                    () -> {
-                                        try {
-                                            cat.createTable("users", schema);
-                                        } catch (IOException e) {
-                                            throw new RuntimeException(e);
-                                        }
-                                        return cat.getTable("users").orElseThrow();
-                                    });
-            Table users = cat.openTable(meta.id());
+        try (Database db = new Database(config);
+                BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
+            StringBuilder pending = new StringBuilder();
+            while (true) {
+                System.out.print(pending.isEmpty() ? "evolvdb> " : "      -> ");
+                System.out.flush();
+                String line = reader.readLine();
+                if (line == null) break;
 
-            // Insert two tuples
-            var t1 = new Tuple(users.schema(), List.of(1, "Alice"));
-            var t2 = new Tuple(users.schema(), List.of(2, "Bob"));
-            var r1 = users.insert(t1);
-            var r2 = users.insert(t2);
-            System.out.println("Inserted into users: " + r1 + ", " + r2);
+                String trimmed = line.trim();
+                if (trimmed.equals("\\q") || trimmed.equalsIgnoreCase("quit")) break;
+                if (trimmed.isEmpty()) continue;
 
-            System.out.println("Scan users:");
-            for (var tup : users.scanTuples()) {
-                System.out.println("  - " + tup.values());
+                pending.append(line).append(' ');
+
+                if (!trimmed.endsWith(";")) continue;
+
+                String sql = pending.toString().trim();
+                if (sql.endsWith(";")) sql = sql.substring(0, sql.length() - 1).trim();
+                pending.setLength(0);
+
+                if (sql.isEmpty()) continue;
+
+                try {
+                    QueryResult result = db.execute(sql);
+                    printResult(result);
+                } catch (Exception e) {
+                    System.out.println("ERROR: " + e.getMessage());
+                }
             }
+        }
+
+        System.out.println("Bye.");
+    }
+
+    private static void printResult(QueryResult result) {
+        if (result.message() != null) {
+            System.out.println(result.message());
+            return;
+        }
+        if (result.schema() != null) {
+            var cols = result.schema().columns();
+            StringBuilder header = new StringBuilder();
+            StringBuilder sep = new StringBuilder();
+            for (int i = 0; i < cols.size(); i++) {
+                ColumnMeta col = cols.get(i);
+                String name = col.name();
+                if (i > 0) {
+                    header.append(" | ");
+                    sep.append("-+-");
+                }
+                header.append(String.format("%-15s", name));
+                sep.append("-".repeat(15));
+            }
+            System.out.println(header);
+            System.out.println(sep);
+
+            for (Tuple row : result.rows()) {
+                StringBuilder rowStr = new StringBuilder();
+                for (int i = 0; i < cols.size(); i++) {
+                    if (i > 0) rowStr.append(" | ");
+                    Object val = row.get(i);
+                    rowStr.append(String.format("%-15s", val == null ? "NULL" : val));
+                }
+                System.out.println(rowStr);
+            }
+
+            System.out.println("(" + result.rows().size() + " rows)");
         }
     }
 
-    /**
-     * Resolves data directory in priority order: 1) System property -Devolvdb.dataDir 2) Env var
-     * EVOLVDB_DATA_DIR 3) Fallback: ./data under the repository root (detected by walking up to a
-     * dir containing settings.gradle.kts or gradlew)
-     */
     private static Path resolveDataDir() {
         String prop = System.getProperty("evolvdb.dataDir");
         if (prop != null && !prop.isBlank()) return Path.of(prop);
@@ -84,7 +115,6 @@ public final class Main {
             }
             cur = cur.getParent();
         }
-        // Fallback to current dir if no markers found
         return start;
     }
 }

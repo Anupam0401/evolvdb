@@ -5,7 +5,7 @@
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="gradleHome" value="" />
+        <option name="gradleJvm" value="corretto-23" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
@@ -16,6 +16,7 @@
             <option value="$PROJECT_DIR$/evolvdb-core" />
             <option value="$PROJECT_DIR$/evolvdb-exec" />
             <option value="$PROJECT_DIR$/evolvdb-planner" />
+            <option value="$PROJECT_DIR$/evolvdb-server" />
             <option value="$PROJECT_DIR$/evolvdb-sql" />
             <option value="$PROJECT_DIR$/evolvdb-storage-buffer" />
             <option value="$PROJECT_DIR$/evolvdb-storage-disk" />

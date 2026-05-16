@@ -41,7 +41,7 @@ public class EndToEndExecTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (Exception ignored) {
+                                    } catch (Exception _) {
                                     }
                                 });
             }

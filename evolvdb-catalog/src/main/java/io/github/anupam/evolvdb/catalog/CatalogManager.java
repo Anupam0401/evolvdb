@@ -9,6 +9,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import io.github.anupam.evolvdb.storage.buffer.BufferPool;
 import io.github.anupam.evolvdb.storage.disk.DiskManager;
@@ -19,8 +21,8 @@ import io.github.anupam.evolvdb.storage.record.RecordManager;
 import io.github.anupam.evolvdb.types.Schema;
 
 /**
- * Catalog manager backed by a system HeapFile. Append-only log of UPSERT/DROP records. Rebuilds
- * in-memory index on startup by scanning the catalog file.
+ * Catalog manager backed by a system HeapFile. Append-only log of UPSERT/DROP records. Uses
+ * ReadWriteLock for virtual-thread-friendly concurrency (no carrier-thread pinning).
  */
 public final class CatalogManager {
     public static final String CATALOG_FILE_NAME = "__catalog__";
@@ -29,9 +31,10 @@ public final class CatalogManager {
     private final BufferPool buffer;
     private final PageFormat format;
     private final HeapFile catalogFile;
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     private final Map<Long, TableMeta> byId = new HashMap<>();
-    private final Map<String, TableMeta> byName = new HashMap<>(); // lower-case key
+    private final Map<String, TableMeta> byName = new HashMap<>();
     private long nextId = 1;
 
     public CatalogManager(DiskManager disk, BufferPool buffer, PageFormat format)
@@ -45,9 +48,8 @@ public final class CatalogManager {
     }
 
     private void load() throws IOException {
-        // Scan catalog file to rebuild state
         int pages = disk.pageCount(new FileId(CATALOG_FILE_NAME));
-        if (pages == 0) return; // nothing yet
+        if (pages == 0) return;
         for (var ridIt = catalogFile.iterator(); ridIt.hasNext(); ) {
             var rid = ridIt.next();
             byte[] rec = catalogFile.read(rid);
@@ -63,62 +65,95 @@ public final class CatalogManager {
         }
     }
 
-    public synchronized TableId createTable(String name, Schema schema) throws IOException {
+    public TableId createTable(String name, Schema schema) throws IOException {
         Objects.requireNonNull(name);
         Objects.requireNonNull(schema);
-        String key = name.toLowerCase(Locale.ROOT);
-        if (byName.containsKey(key))
-            throw new IllegalArgumentException("table already exists: " + name);
-        TableId id = new TableId(nextId++);
-        FileId file = new FileId("t_" + id.value());
-        TableMeta meta = new TableMeta(id, name, schema, file);
-        byte[] rec = TableMetaCodec.encodeUpsert(meta);
-        catalogFile.insert(rec);
-        byId.put(id.value(), meta);
-        byName.put(key, meta);
-        return id;
+        lock.writeLock().lock();
+        try {
+            String key = name.toLowerCase(Locale.ROOT);
+            if (byName.containsKey(key))
+                throw new IllegalArgumentException("table already exists: " + name);
+            TableId id = new TableId(nextId++);
+            FileId file = new FileId("t_" + id.value());
+            TableMeta meta = new TableMeta(id, name, schema, file);
+            byte[] rec = TableMetaCodec.encodeUpsert(meta);
+            catalogFile.insert(rec);
+            byId.put(id.value(), meta);
+            byName.put(key, meta);
+            return id;
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
-    public synchronized Optional<TableMeta> getTable(String name) {
+    public Optional<TableMeta> getTable(String name) {
         Objects.requireNonNull(name);
-        return Optional.ofNullable(byName.get(name.toLowerCase(Locale.ROOT)));
+        lock.readLock().lock();
+        try {
+            return Optional.ofNullable(byName.get(name.toLowerCase(Locale.ROOT)));
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
-    public synchronized Optional<TableMeta> getTable(TableId id) {
+    public Optional<TableMeta> getTable(TableId id) {
         Objects.requireNonNull(id);
-        return Optional.ofNullable(byId.get(id.value()));
+        lock.readLock().lock();
+        try {
+            return Optional.ofNullable(byId.get(id.value()));
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
-    public synchronized void dropTable(TableId id) throws IOException {
+    public void dropTable(TableId id) throws IOException {
         Objects.requireNonNull(id);
-        TableMeta meta = byId.remove(id.value());
-        if (meta == null) return; // idempotent
-        byName.remove(meta.name().toLowerCase(Locale.ROOT));
-        byte[] rec = TableMetaCodec.encodeDrop(id);
-        catalogFile.insert(rec);
+        lock.writeLock().lock();
+        try {
+            TableMeta meta = byId.remove(id.value());
+            if (meta == null) return;
+            byName.remove(meta.name().toLowerCase(Locale.ROOT));
+            byte[] rec = TableMetaCodec.encodeDrop(id);
+            catalogFile.insert(rec);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
-    public synchronized List<TableMeta> listTables() {
-        return Collections.unmodifiableList(new ArrayList<>(byId.values()));
+    public List<TableMeta> listTables() {
+        lock.readLock().lock();
+        try {
+            return Collections.unmodifiableList(new ArrayList<>(byId.values()));
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
-    /** Opens a table by name and returns a tuple-oriented Table handle. */
-    public synchronized Table openTable(String name) throws IOException {
+    public Table openTable(String name) throws IOException {
         Objects.requireNonNull(name);
-        TableMeta meta = byName.get(name.toLowerCase(Locale.ROOT));
-        if (meta == null) throw new IllegalArgumentException("unknown table: " + name);
-        RecordManager rm = new RecordManager(disk, buffer);
-        HeapFile hf = rm.openHeapFile(meta.fileId().name(), format);
-        return new Table(meta, hf);
+        lock.readLock().lock();
+        try {
+            TableMeta meta = byName.get(name.toLowerCase(Locale.ROOT));
+            if (meta == null) throw new IllegalArgumentException("unknown table: " + name);
+            RecordManager rm = new RecordManager(disk, buffer);
+            HeapFile hf = rm.openHeapFile(meta.fileId().name(), format);
+            return new Table(meta, hf);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
-    /** Opens a table by id and returns a tuple-oriented Table handle. */
-    public synchronized Table openTable(TableId id) throws IOException {
+    public Table openTable(TableId id) throws IOException {
         Objects.requireNonNull(id);
-        TableMeta meta = byId.get(id.value());
-        if (meta == null) throw new IllegalArgumentException("unknown table id: " + id);
-        RecordManager rm = new RecordManager(disk, buffer);
-        HeapFile hf = rm.openHeapFile(meta.fileId().name(), format);
-        return new Table(meta, hf);
+        lock.readLock().lock();
+        try {
+            TableMeta meta = byId.get(id.value());
+            if (meta == null) throw new IllegalArgumentException("unknown table id: " + id);
+            RecordManager rm = new RecordManager(disk, buffer);
+            HeapFile hf = rm.openHeapFile(meta.fileId().name(), format);
+            return new Table(meta, hf);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 }

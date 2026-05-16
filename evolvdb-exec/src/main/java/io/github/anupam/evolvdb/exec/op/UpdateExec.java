@@ -7,16 +7,19 @@ import java.util.Map;
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.catalog.Table;
 import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
-import io.github.anupam.evolvdb.planner.logical.LogicalFilter;
-import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 import io.github.anupam.evolvdb.planner.logical.LogicalUpdate;
 import io.github.anupam.evolvdb.sql.ast.Expr;
+import io.github.anupam.evolvdb.storage.page.RecordId;
 import io.github.anupam.evolvdb.types.ColumnMeta;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Tuple;
 import io.github.anupam.evolvdb.types.Type;
 
-/** Executes UPDATE statements by modifying tuples in the table. */
+/**
+ * Executes UPDATE statements by pulling matching tuples from the child operator and applying
+ * assignments. Uses the Volcano pull model: the child (e.g. FilterExec wrapping SeqScanWithRidExec)
+ * provides both the tuple and its RecordId.
+ */
 public final class UpdateExec implements PhysicalOperator {
     private final PhysicalOperator child;
     private final CatalogManager catalog;
@@ -38,6 +41,7 @@ public final class UpdateExec implements PhysicalOperator {
         this.table = catalog.openTable(update.tableName());
         this.updatedCount = 0;
         this.executed = false;
+        child.open();
     }
 
     @Override
@@ -47,51 +51,36 @@ public final class UpdateExec implements PhysicalOperator {
         Schema schema = table.schema();
         Map<String, Expr> assignments = update.assignments();
 
-        // Extract WHERE filter from child plan
-        Expr whereFilter = extractFilter(update.child());
-
-        // Scan table with RecordIds and apply filter
-        for (Table.TupleWithRecordId twr : table.scanTuplesWithRecordIds()) {
-            // Check if tuple matches WHERE clause
-            if (whereFilter != null) {
-                Object result = evaluator.eval(whereFilter, twr.tuple, schema);
-                if (result == null || !((Boolean) result)) {
-                    continue; // Skip non-matching rows
-                }
+        for (Tuple row = child.next(); row != null; row = child.next()) {
+            RecordId rid = child.lastRecordId();
+            if (rid == null) {
+                throw new IllegalStateException("UPDATE child operator does not provide RecordIds");
             }
 
-            // Apply assignments to create new tuple
             List<Object> newValues = new ArrayList<>(schema.size());
             for (int i = 0; i < schema.columns().size(); i++) {
                 ColumnMeta col = schema.columns().get(i);
                 if (assignments.containsKey(col.name())) {
-                    Object value = evaluator.eval(assignments.get(col.name()), twr.tuple, schema);
+                    Object value = evaluator.eval(assignments.get(col.name()), row, schema);
                     if (col.type() == Type.INT && value instanceof Long) {
                         value = ((Long) value).intValue();
                     }
                     newValues.add(value);
                 } else {
-                    newValues.add(twr.tuple.get(i));
+                    newValues.add(row.get(i));
                 }
             }
 
             Tuple newTuple = new Tuple(schema, newValues);
-            table.update(twr.recordId, newTuple);
+            table.update(rid, newTuple);
             updatedCount++;
         }
 
+        child.close();
         executed = true;
 
         Schema resultSchema = new Schema(List.of(new ColumnMeta("updated_count", Type.INT, null)));
         return new Tuple(resultSchema, List.of(updatedCount));
-    }
-
-    private Expr extractFilter(LogicalPlan plan) {
-        if (plan instanceof LogicalFilter) {
-            LogicalFilter filter = (LogicalFilter) plan;
-            return filter.predicate();
-        }
-        return null;
     }
 
     @Override

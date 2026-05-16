@@ -38,7 +38,7 @@ class JoinAndAggregateTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (Exception ignored) {
+                                    } catch (Exception _) {
                                     }
                                 });
             }

@@ -38,62 +38,34 @@
 
 ## PHASE 1: BASIC SQL & TYPE SYSTEM (M12-M15)
 
-### M12: UPDATE & DELETE Statements ⭐ START HERE
+### M12: UPDATE & DELETE Statements ✅ COMPLETED
 
 **Priority**: HIGHEST - Makes CRUD complete
-**Estimated Effort**: 3-4 days
-**Dependencies**: None (storage already supports it)
+**Status**: Complete (including post-M12 bug fixes)
 
-#### Scope
-- SQL parsing for UPDATE and DELETE
+#### What Was Delivered
+- SQL parsing for UPDATE and DELETE (including NULL literal support)
 - Logical plan nodes: LogicalUpdate, LogicalDelete
-- Physical operators: UpdateExec, DeleteExec
+- Physical operators: UpdateExec, DeleteExec using proper Volcano pull model
+- SeqScanWithRidExec for RecordId-aware scanning
+- PhysicalOperator.lastRecordId() for RecordId propagation through operator chain
 - WHERE clause support for both statements
 - Multi-row updates and deletes
+- Unified `Database.execute(String sql)` API
+- Interactive CLI REPL
 
-#### HLD
-```
-UPDATE users SET age = 30 WHERE id = 1;
-  ↓
-AST: Update(table=users, assignments=[age=30], where=id=1)
-  ↓
-LogicalUpdate(scan(users), filter(id=1), assignments)
-  ↓
-UpdateExec → HeapFile.update()
+#### Post-M12 Bug Fixes Applied
+1. **PageFullException** — Domain-specific exception in storage-page, replacing generic `IllegalStateException`
+2. **NULL literal parsing** — Added NULL token type, keyword mapping, and parser case
+3. **Volcano pipeline integrity** — UpdateExec/DeleteExec now use child operator instead of rescanning
+4. **Aggregate type fix** — SumAgg field naming caused shadowing; fixed and test re-enabled
+5. **Unified execute API** — `Database.execute(sql)` + CLI REPL wiring full SQL pipeline
 
-DELETE FROM users WHERE age < 18;
-  ↓
-AST: Delete(table=users, where=age<18)
-  ↓
-LogicalDelete(scan(users), filter(age<18))
-  ↓
-DeleteExec → HeapFile.delete()
-```
-
-#### LLD / Modules
-- `evolvdb-sql/parser`: Add UPDATE/DELETE grammar
-- `evolvdb-sql/ast`: UpdateStmt, DeleteStmt nodes
-- `evolvdb-planner/logical`: LogicalUpdate, LogicalDelete
-- `evolvdb-exec/op`: UpdateExec, DeleteExec
-
-#### APIs
-```java
-// Parser
-Statement SqlParser.parse("UPDATE users SET age = 30 WHERE id = 1");
-
-// Logical Plan
-LogicalUpdate(LogicalPlan child, String tableName, 
-              Map<String, Expr> assignments, Expr whereClause);
-
-// Physical Operator
-UpdateExec(CatalogManager catalog, LogicalUpdate plan);
-int execute(); // returns rows affected
-```
-
-#### Design Patterns
+#### Design Patterns Used
+- **Volcano pull model**: UpdateExec/DeleteExec participate as proper Volcano operators
 - **Visitor**: AST traversal for UPDATE/DELETE
-- **Strategy**: Update semantics (in-place vs relocate)
-- **Template**: Operator lifecycle
+- **Strategy**: Update semantics (in-place vs relocate via HeapFile)
+- **Facade**: Database.execute() as single entry point for all SQL
 
 #### Tests (BDD)
 - `givenTable_whenUpdateWithWhere_thenRowsModified()`
@@ -143,18 +115,57 @@ Three-valued logic:
 - IS NULL / IS NOT NULL returns TRUE/FALSE
 ```
 
+#### Detailed Implementation Steps
+
+**Step 1: Allow null values in Tuple** (evolvdb-types)
+- Remove the `if (v == null) throw` check in `Tuple.validate()`
+- Add `nullable` field to `ColumnMeta` (default: `true` for backward compatibility)
+- Only reject null when `nullable == false`
+
+**Step 2: NULL bitmap in RowCodec** (evolvdb-types)
+- Encode format: `[bitmap][non-null values]` where bitmap is `ceil(N/8)` bytes
+- Bit i = 1 means column i is NULL; omit that column's bytes from the payload
+- Update `RowCodec.encode()` and `RowCodec.decode()` accordingly
+- Existing data migration: all current records have no bitmap — detect via a version byte or schema flag
+
+**Step 3: IS NULL / IS NOT NULL parsing** (evolvdb-sql)
+- Add `IS` token type to `TokenType` and keyword map
+- In `parsePrimary()` or comparison parsing, handle `expr IS NULL` and `expr IS NOT NULL`
+- Create `IsNullExpr(Expr operand, boolean negated)` AST node
+- NULL literal already works (fixed in bug-2)
+
+**Step 4: Three-valued logic in ExprEvaluator** (evolvdb-exec)
+- `eval(Literal(null))` returns `null`
+- `ComparisonExpr`: if either side is null, return null (not true/false)
+- `LogicalExpr`:
+  - `NULL AND FALSE = FALSE`, `NULL AND TRUE = NULL`
+  - `NULL OR TRUE = TRUE`, `NULL OR FALSE = NULL`
+  - `NOT NULL = NULL`
+- `IsNullExpr`: return `true` if operand evaluates to null, `false` otherwise
+- `FilterExec`: treat null as "does not pass" (same as false)
+
+**Step 5: NULL in aggregates** (evolvdb-exec)
+- `CountAgg`: COUNT(*) counts all rows; COUNT(expr) skips nulls (already partially handled)
+- `SumAgg`, `AvgAgg`: skip null values (already partially handled via `if (v == null)` guards)
+- `MinMaxAgg`: skip null values (already handled)
+
+**Step 6: COALESCE function** (evolvdb-sql, evolvdb-exec)
+- Parse `COALESCE(expr, expr, ...)` as a FuncCall
+- In ExprEvaluator, evaluate args left-to-right, return first non-null
+
 #### LLD / Modules
-- `evolvdb-types/Type`: Add NULL support flag
 - `evolvdb-types/ColumnMeta`: Add `nullable` boolean
-- `evolvdb-types/Tuple`: Allow null values
-- `evolvdb-types/RowCodec`: NULL bitmap encoding
-- `evolvdb-sql/ast`: Add NullLiteral, IsNullExpr
+- `evolvdb-types/Tuple`: Allow null values (conditional on nullable)
+- `evolvdb-types/RowCodec`: NULL bitmap encoding/decoding
+- `evolvdb-sql/ast`: `IsNullExpr` node
+- `evolvdb-sql/parser`: IS NULL / IS NOT NULL syntax
 - `evolvdb-exec/expr`: Three-valued logic in ExprEvaluator
 
 #### NULL Bitmap Encoding
 ```java
 // For N columns, use (N + 7) / 8 bytes for bitmap
 // Bit i = 1 means column i is NULL
+// Only non-null values are serialized after the bitmap
 
 class RowCodec {
     byte[] encode(Schema schema, Tuple tuple) {
@@ -181,11 +192,13 @@ class RowCodec {
 - **Strategy**: NULL handling strategies for different operators
 
 #### Tests
-- `givenNullValue_whenInsert_thenStored()`
-- `givenNullInWhere_whenFilter_thenThreeValuedLogic()`
-- `givenNullInAggregate_whenCount_thenIgnored()`
-- `givenIsNull_whenEvaluate_thenCorrectResult()`
+- `givenNullValue_whenInsert_thenStored()` — round-trip through HeapFile
+- `givenNullInWhere_whenFilter_thenThreeValuedLogic()` — NULL AND TRUE = NULL
+- `givenNullComparison_whenFilter_thenSkipsRow()` — NULL = NULL is NOT true
+- `givenNullInAggregate_whenCount_thenIgnored()` — COUNT(col) skips nulls
+- `givenIsNull_whenEvaluate_thenCorrectResult()` — IS NULL / IS NOT NULL
 - `givenCoalesce_whenFirstNull_thenSecondValue()`
+- `givenUpdateSetNull_whenExecute_thenColumnBecomesNull()` — uses NULL literal from parser
 
 #### SOLID Considerations
 - SRP: Separate NULL bitmap logic from value encoding
@@ -296,8 +309,34 @@ Physical Plan:
   SeqScanExec(users)
 ```
 
+#### Detailed Implementation Steps
+
+**Step 1: Parser changes** (evolvdb-sql)
+- Add `ORDER`, `LIMIT`, `OFFSET`, `ASC`, `DESC`, `NULLS`, `FIRST`, `LAST` to TokenType and keyword map
+- Extend `Select` AST node with `List<OrderKey> orderBy`, `Expr limit`, `Expr offset`
+- Create `OrderKey` record: `(Expr expr, boolean desc, NullOrder nullOrder)`
+- Parse after GROUP BY: `ORDER BY expr [ASC|DESC] [NULLS FIRST|LAST] (, ...)*`
+- Parse after ORDER BY: `LIMIT expr [OFFSET expr]`
+
+**Step 2: Logical plan nodes** (evolvdb-planner)
+- `LogicalSort(LogicalPlan child, List<OrderKey> keys)`
+- `LogicalLimit(LogicalPlan child, int limit, int offset)`
+- Binder emits: `LogicalLimit(LogicalSort(child, keys), limit, offset)` when ORDER BY + LIMIT present
+- Just `LogicalSort` when only ORDER BY; just `LogicalLimit` when only LIMIT
+
+**Step 3: Physical operators** (evolvdb-exec)
+- `SortExec`: buffers all rows in open(), sorts with multi-key comparator, iterates in next()
+- `LimitExec`: passes through first `limit` rows after skipping `offset`, then returns null
+- `TopNExec`: optimization when both SORT + LIMIT — uses a bounded heap (PriorityQueue) of size `limit + offset` instead of full sort
+
+**Step 4: Optimizer integration** (evolvdb-exec/optimizer)
+- Add `SortPlan`, `LimitPlan`, `TopNPlan` to PhysicalPlan hierarchy
+- `SortRule`: LogicalSort → SortPlan (or TopNPlan when parent is LogicalLimit)
+- `LimitRule`: LogicalLimit → LimitPlan
+- Cost model: sort cost = O(n log n), TopN cost = O(n log k)
+
 #### LLD / Modules
-- `evolvdb-sql/ast`: OrderBy, Limit nodes in Select
+- `evolvdb-sql/ast`: OrderKey, extended Select
 - `evolvdb-planner/logical`: LogicalSort, LogicalLimit
 - `evolvdb-exec/op`: SortExec, TopNExec, LimitExec
 - `evolvdb-exec/util`: Comparator for multi-key sort

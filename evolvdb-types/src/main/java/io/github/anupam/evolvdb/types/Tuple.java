@@ -1,13 +1,11 @@
 package io.github.anupam.evolvdb.types;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Immutable tuple (row) bound to a Schema. Values are validated against column types. Nulls are not
- * supported yet (M7 scope).
- */
+/** Immutable tuple (row) bound to a Schema. Values are validated against column types. */
 public final class Tuple {
     private final Schema schema;
     private final List<Object> values; // sized to schema.columns().size()
@@ -28,7 +26,11 @@ public final class Tuple {
     }
 
     private static void validate(ColumnMeta col, Object v) {
-        if (v == null) throw new IllegalArgumentException("Nulls not supported yet");
+        if (v == null) {
+            if (!col.nullable())
+                throw new IllegalArgumentException(col.name() + " does not allow NULL");
+            return;
+        }
         switch (col.type()) {
             case INT -> {
                 if (!(v instanceof Integer))
@@ -67,7 +69,7 @@ public final class Tuple {
     }
 
     public List<Object> values() {
-        return List.copyOf(values);
+        return Collections.unmodifiableList(values);
     }
 
     public Object get(int idx) {

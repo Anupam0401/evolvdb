@@ -50,6 +50,10 @@ public interface AstVisitor<R, C> {
         return visitNode(node, context);
     }
 
+    default R visitIsNullExpr(IsNullExpr node, C context) {
+        return visitNode(node, context);
+    }
+
     default R visitFuncCall(FuncCall node, C context) {
         return visitNode(node, context);
     }

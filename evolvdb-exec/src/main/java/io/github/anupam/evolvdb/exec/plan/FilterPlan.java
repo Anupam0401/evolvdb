@@ -19,6 +19,10 @@ public final class FilterPlan implements PhysicalPlan {
         this.predicate = predicate;
     }
 
+    public Expr predicate() {
+        return predicate;
+    }
+
     @Override
     public Schema schema() {
         return child.schema();

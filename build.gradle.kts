@@ -1,5 +1,5 @@
 plugins {
-    id("com.diffplug.spotless") version "6.23.3" apply false
+    id("com.diffplug.spotless") version "7.0.2" apply false
 }
 
 group = "io.github.anupam"
@@ -13,17 +13,17 @@ subprojects {
         mavenCentral() 
     }
 
-    // Configure Java toolchain for all subprojects
+    // Configure Java toolchain for all subprojects — Java 25 LTS
     extensions.configure<org.gradle.api.plugins.JavaPluginExtension> {
-        toolchain.languageVersion.set(org.gradle.jvm.toolchain.JavaLanguageVersion.of(21))
+        toolchain.languageVersion.set(org.gradle.jvm.toolchain.JavaLanguageVersion.of(25))
     }
 
     tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
-        options.release.set(21)
+        options.release.set(25)
     }
 
     dependencies {
-        add("testImplementation", platform("org.junit:junit-bom:5.10.0"))
+        add("testImplementation", platform("org.junit:junit-bom:5.11.4"))
         add("testImplementation", "org.junit.jupiter:junit-jupiter")
         add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
     }
@@ -35,26 +35,14 @@ subprojects {
     // Configure Spotless for code formatting
     configure<com.diffplug.gradle.spotless.SpotlessExtension> {
         java {
-            // Use Google Java Format
-            googleJavaFormat("1.19.1").aosp().reflowLongStrings()
-            
-            // Import order: java/javax, blank line, all other imports, blank line, static imports
+            googleJavaFormat("1.25.2").aosp().reflowLongStrings()
+
             importOrder("java", "javax", "", "\\#")
-            
-            // Remove unused imports
             removeUnusedImports()
-            
-            // Trim trailing whitespace
             trimTrailingWhitespace()
-            
-            // Ensure newline at end of file
             endWithNewline()
-            
-            // Format all Java files
             target("src/**/*.java")
             targetExclude("build/**")
-            
-            // Toggle for javadoc formatting
             formatAnnotations()
         }
     }

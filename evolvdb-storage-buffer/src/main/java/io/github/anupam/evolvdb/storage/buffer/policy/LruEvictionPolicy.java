@@ -1,6 +1,5 @@
 package io.github.anupam.evolvdb.storage.buffer.policy;
 
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -36,9 +35,7 @@ public final class LruEvictionPolicy implements EvictionPolicy {
 
     @Override
     public PageId evictCandidate(Predicate<PageId> canEvict) {
-        Iterator<PageId> it = order.iterator();
-        while (it.hasNext()) {
-            PageId id = it.next();
+        for (PageId id : order) {
             if (canEvict.test(id)) {
                 return id; // caller will remove
             }

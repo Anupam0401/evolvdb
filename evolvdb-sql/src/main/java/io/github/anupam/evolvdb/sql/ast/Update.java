@@ -10,13 +10,14 @@ public final class Update extends Statement {
     private final Expr where;
 
     public Update(SourcePos pos, String tableName, Map<String, Expr> assignments, Expr where) {
-        super(pos);
         if (tableName == null || tableName.isBlank())
             throw new IllegalArgumentException("tableName");
-        this.tableName = tableName;
-        this.assignments = Map.copyOf(Objects.requireNonNull(assignments, "assignments"));
+        Objects.requireNonNull(assignments, "assignments");
         if (assignments.isEmpty())
             throw new IllegalArgumentException("at least one assignment required");
+        super(pos);
+        this.tableName = tableName;
+        this.assignments = Map.copyOf(assignments);
         this.where = where;
     }
 

@@ -16,11 +16,12 @@ public final class Select extends Statement {
             List<TableRef> froms,
             Expr where,
             List<Expr> groupBy) {
+        Objects.requireNonNull(items, "items");
+        Objects.requireNonNull(froms, "froms");
+        if (froms.isEmpty()) throw new IllegalArgumentException("at least one FROM table required");
         super(pos);
-        this.items = List.copyOf(Objects.requireNonNull(items, "items"));
-        this.froms = List.copyOf(Objects.requireNonNull(froms, "froms"));
-        if (this.froms.isEmpty())
-            throw new IllegalArgumentException("at least one FROM table required");
+        this.items = List.copyOf(items);
+        this.froms = List.copyOf(froms);
         this.where = where;
         this.groupBy = groupBy == null ? List.of() : List.copyOf(groupBy);
     }

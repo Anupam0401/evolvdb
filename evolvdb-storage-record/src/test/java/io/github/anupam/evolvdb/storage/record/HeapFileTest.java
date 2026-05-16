@@ -34,7 +34,7 @@ class HeapFileTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (IOException ignored) {
+                                    } catch (IOException _) {
                                     }
                                 });
             }

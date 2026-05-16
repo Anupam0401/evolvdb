@@ -47,7 +47,7 @@ public final class HashJoinExec implements PhysicalOperator {
         // Build hash on right
         for (Tuple t = right.next(); t != null; t = right.next()) {
             Object k = evaluator.eval(rightKey, t, right.schema());
-            hash.computeIfAbsent(k, kk -> new ArrayList<>()).add(t);
+            hash.computeIfAbsent(k, _ -> new ArrayList<>()).add(t);
         }
         right.close();
         curLeft = left.next();

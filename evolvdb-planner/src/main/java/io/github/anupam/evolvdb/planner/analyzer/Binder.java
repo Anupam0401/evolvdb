@@ -251,11 +251,21 @@ public final class Binder {
             len = cm.length();
         } else if (expr instanceof Literal lit) {
             Object v = lit.value();
-            if (v instanceof Integer) t = Type.INT;
-            else if (v instanceof Long) t = Type.BIGINT;
-            else if (v instanceof Boolean) t = Type.BOOLEAN;
-            else if (v instanceof String) t = Type.STRING;
-            else throw err(expr.pos(), "Unsupported literal type: " + v.getClass().getSimpleName());
+            switch (v) {
+                case null -> t = Type.STRING;
+                case Integer _ -> t = Type.INT;
+                case Long _ -> t = Type.BIGINT;
+                case Boolean _ -> t = Type.BOOLEAN;
+                case String _ -> t = Type.STRING;
+                default ->
+                        throw err(
+                                expr.pos(),
+                                "Unsupported literal type: " + v.getClass().getSimpleName());
+            }
+        } else if (expr instanceof IsNullExpr) {
+            t = Type.BOOLEAN;
+        } else if (expr instanceof FuncCall fc && !containsAggregate(fc)) {
+            return inferScalarFuncColumn(fc, name, env);
         } else if (expr instanceof BinaryExpr be) {
             Type lt = inferOutputColumn(be.left(), name, env).type();
             Type rt = inferOutputColumn(be.right(), name, env).type();
@@ -273,6 +283,16 @@ public final class Binder {
                     "Unsupported expression in projection: " + expr.getClass().getSimpleName());
         }
         return new ColumnMeta(name, t, len);
+    }
+
+    private ColumnMeta inferScalarFuncColumn(FuncCall fc, String name, BindingEnv env) {
+        String fn = fc.name().toUpperCase();
+        if (fn.equals("COALESCE")) {
+            if (fc.args().isEmpty()) throw err(fc.pos(), "COALESCE requires at least one argument");
+            ColumnMeta first = inferOutputColumn(fc.args().get(0), name, env);
+            return new ColumnMeta(name, first.type(), first.length());
+        }
+        throw err(fc.pos(), "Unknown scalar function: " + fc.name());
     }
 
     private ColumnMeta inferAggOutputColumn(FuncCall fc, String name, BindingEnv env) {
@@ -327,10 +347,10 @@ public final class Binder {
             validateExpr(ce.left(), env);
             validateExpr(ce.right(), env);
         } else if (expr instanceof FuncCall fc) {
-            // validate args
             for (Expr a : fc.args()) validateExpr(a, env);
+        } else if (expr instanceof IsNullExpr ine) {
+            validateExpr(ine.operand(), env);
         }
-        // literals are fine
     }
 
     // --- Helpers for multi-table binding ---
@@ -455,6 +475,8 @@ public final class Binder {
             collectQuals(ce.right(), env, out);
         } else if (e instanceof FuncCall fc) {
             for (Expr a : fc.args()) collectQuals(a, env, out);
+        } else if (e instanceof IsNullExpr ine) {
+            collectQuals(ine.operand(), env, out);
         }
     }
 
@@ -477,6 +499,8 @@ public final class Binder {
             collectCols(ce.right(), env, out);
         } else if (e instanceof FuncCall fc) {
             for (Expr a : fc.args()) collectCols(a, env, out);
+        } else if (e instanceof IsNullExpr ine) {
+            collectCols(ine.operand(), env, out);
         }
     }
 
@@ -508,11 +532,13 @@ public final class Binder {
     private boolean containsAggregate(Expr e) {
         if (e instanceof FuncCall fc) {
             String fn = fc.name().toUpperCase();
-            return fn.equals("COUNT")
+            if (fn.equals("COUNT")
                     || fn.equals("SUM")
                     || fn.equals("AVG")
                     || fn.equals("MIN")
-                    || fn.equals("MAX");
+                    || fn.equals("MAX")) return true;
+            for (Expr a : fc.args()) if (containsAggregate(a)) return true;
+            return false;
         } else if (e instanceof BinaryExpr be) {
             return containsAggregate(be.left()) || containsAggregate(be.right());
         } else if (e instanceof LogicalExpr le) {
@@ -520,6 +546,8 @@ public final class Binder {
                     || (le.right() != null && containsAggregate(le.right()));
         } else if (e instanceof ComparisonExpr ce) {
             return containsAggregate(ce.left()) || containsAggregate(ce.right());
+        } else if (e instanceof IsNullExpr ine) {
+            return containsAggregate(ine.operand());
         }
         return false;
     }

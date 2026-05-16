@@ -200,5 +200,8 @@ class UpdateDeleteParserTest {
         assertInstanceOf(Update.class, stmt);
         Update update = (Update) stmt;
         assertTrue(update.assignments().containsKey("email"));
+        Expr emailExpr = update.assignments().get("email");
+        assertInstanceOf(Literal.class, emailExpr);
+        assertNull(((Literal) emailExpr).value());
     }
 }

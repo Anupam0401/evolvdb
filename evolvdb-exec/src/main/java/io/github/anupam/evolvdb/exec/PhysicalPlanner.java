@@ -51,15 +51,30 @@ public final class PhysicalPlanner {
             return new InsertExec(ctx.catalog(), i);
         }
         if (logical instanceof LogicalUpdate u) {
-            PhysicalOperator c = plan(u.child(), ctx);
+            PhysicalOperator c = planDmlChild(u.child(), ctx);
             return new UpdateExec(c, ctx.catalog(), u);
         }
         if (logical instanceof LogicalDelete d) {
-            PhysicalOperator c = plan(d.child(), ctx);
+            PhysicalOperator c = planDmlChild(d.child(), ctx);
             return new DeleteExec(c, ctx.catalog(), d);
         }
         throw new IllegalArgumentException(
                 "Unsupported logical node: " + logical.getClass().getSimpleName());
+    }
+
+    /**
+     * Plans the child of a DML operator (UPDATE/DELETE), using SeqScanWithRidExec at the leaf so
+     * that RecordIds propagate up through the operator chain.
+     */
+    private PhysicalOperator planDmlChild(LogicalPlan logical, ExecContext ctx) {
+        if (logical instanceof LogicalScan s) {
+            return new SeqScanWithRidExec(ctx.catalog(), s.tableName());
+        }
+        if (logical instanceof LogicalFilter f) {
+            PhysicalOperator c = planDmlChild(f.child(), ctx);
+            return new FilterExec(c, f.predicate());
+        }
+        return plan(logical, ctx);
     }
 
     private List<PhysicalRule> defaultRules() {

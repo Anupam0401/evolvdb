@@ -12,7 +12,7 @@ TEMP_REVIEW_FILE="/tmp/cascade_code_review_latest.txt"
 rm -f "$TEMP_REVIEW_FILE"
 
 # Generate review to file (handles unlimited size)
-python3 .windsurf/workflows/code_review/request_review.py \
+python3 .cursor/commands/code_review/request_review.py \
   --base auto \
   --mode worktree \
   --include-untracked \

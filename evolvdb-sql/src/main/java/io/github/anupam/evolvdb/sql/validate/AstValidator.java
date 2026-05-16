@@ -9,22 +9,7 @@ import java.util.function.Consumer;
 
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.catalog.TableMeta;
-import io.github.anupam.evolvdb.sql.ast.AstNode;
-import io.github.anupam.evolvdb.sql.ast.BinaryExpr;
-import io.github.anupam.evolvdb.sql.ast.ColumnDef;
-import io.github.anupam.evolvdb.sql.ast.ColumnRef;
-import io.github.anupam.evolvdb.sql.ast.ComparisonExpr;
-import io.github.anupam.evolvdb.sql.ast.CreateTable;
-import io.github.anupam.evolvdb.sql.ast.Delete;
-import io.github.anupam.evolvdb.sql.ast.DropTable;
-import io.github.anupam.evolvdb.sql.ast.Expr;
-import io.github.anupam.evolvdb.sql.ast.Insert;
-import io.github.anupam.evolvdb.sql.ast.Literal;
-import io.github.anupam.evolvdb.sql.ast.LogicalExpr;
-import io.github.anupam.evolvdb.sql.ast.Select;
-import io.github.anupam.evolvdb.sql.ast.SelectItem;
-import io.github.anupam.evolvdb.sql.ast.SourcePos;
-import io.github.anupam.evolvdb.sql.ast.Update;
+import io.github.anupam.evolvdb.sql.ast.*;
 import io.github.anupam.evolvdb.types.ColumnMeta;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Type;
@@ -130,6 +115,10 @@ public final class AstValidator {
                         } else if (expr instanceof ComparisonExpr ce) {
                             accept(ce.left());
                             accept(ce.right());
+                        } else if (expr instanceof IsNullExpr ine) {
+                            accept(ine.operand());
+                        } else if (expr instanceof FuncCall fc) {
+                            for (Expr a : fc.args()) accept(a);
                         }
                     }
                 };
@@ -197,6 +186,10 @@ public final class AstValidator {
                 } else if (expr instanceof ComparisonExpr ce) {
                     accept(ce.left());
                     accept(ce.right());
+                } else if (expr instanceof IsNullExpr ine) {
+                    accept(ine.operand());
+                } else if (expr instanceof FuncCall fc) {
+                    for (Expr a : fc.args()) accept(a);
                 }
             }
         };
@@ -212,8 +205,12 @@ public final class AstValidator {
     }
 
     private void validateLiteralTypeCompat(Expr expr, ColumnMeta cm) {
-        if (!(expr instanceof Literal lit)) return; // non-literal: skip static check
+        if (!(expr instanceof Literal lit)) return;
         Object v = lit.value();
+        if (v == null) {
+            if (!cm.nullable()) throw err(lit.pos(), cm.name() + " does not allow NULL");
+            return;
+        }
         Type t = cm.type();
         switch (t) {
             case INT -> {

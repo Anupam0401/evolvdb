@@ -2,6 +2,7 @@ package io.github.anupam.evolvdb.exec.op;
 
 import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
 import io.github.anupam.evolvdb.sql.ast.Expr;
+import io.github.anupam.evolvdb.storage.page.RecordId;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Tuple;
 
@@ -39,5 +40,10 @@ public final class FilterExec implements PhysicalOperator {
     @Override
     public Schema schema() {
         return child.schema();
+    }
+
+    @Override
+    public RecordId lastRecordId() {
+        return child.lastRecordId();
     }
 }

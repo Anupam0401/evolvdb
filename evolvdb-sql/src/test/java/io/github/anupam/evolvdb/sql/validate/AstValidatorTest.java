@@ -36,7 +36,7 @@ class AstValidatorTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (Exception ignored) {
+                                    } catch (Exception _) {
                                     }
                                 });
             }
@@ -153,6 +153,38 @@ class AstValidatorTest {
             var parser = new SqlParser();
             var validator = new AstValidator();
             AstNode ast = parser.parse("DROP TABLE nope");
+            assertThrows(IllegalArgumentException.class, () -> validator.validate(ast, cat));
+        }
+    }
+
+    @Test
+    void givenNullLiteralInNullableColumn_whenValidate_thenOk() throws Exception {
+        try (Database db = db()) {
+            CatalogManager cat = db.catalog();
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.STRING, null)));
+            cat.createTable("users", schema);
+
+            var parser = new SqlParser();
+            var validator = new AstValidator();
+            AstNode ast = parser.parse("INSERT INTO users VALUES (1, NULL)");
+            assertDoesNotThrow(() -> validator.validate(ast, cat));
+        }
+    }
+
+    @Test
+    void givenNullLiteralInNotNullColumn_whenValidate_thenError() throws Exception {
+        try (Database db = db()) {
+            CatalogManager cat = db.catalog();
+            Schema schema = new Schema(List.of(new ColumnMeta("id", Type.INT, null, false)));
+            cat.createTable("strict", schema);
+
+            var parser = new SqlParser();
+            var validator = new AstValidator();
+            AstNode ast = parser.parse("INSERT INTO strict VALUES (NULL)");
             assertThrows(IllegalArgumentException.class, () -> validator.validate(ast, cat));
         }
     }

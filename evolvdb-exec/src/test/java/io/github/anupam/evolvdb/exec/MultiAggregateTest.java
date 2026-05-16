@@ -41,7 +41,7 @@ public class MultiAggregateTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (Exception ignored) {
+                                    } catch (Exception _) {
                                     }
                                 });
             }
@@ -49,7 +49,6 @@ public class MultiAggregateTest {
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Type inference mismatch between INT and BIGINT - to be fixed")
     void multiple_aggregates_with_group_by() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();

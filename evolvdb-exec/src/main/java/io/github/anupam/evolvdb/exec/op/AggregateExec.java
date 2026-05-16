@@ -40,7 +40,7 @@ public final class AggregateExec implements PhysicalOperator {
             for (Expr g : groupBy) {
                 key.add(evaluator.eval(g, t, child.schema()));
             }
-            List<Object> mapKey = List.copyOf(key);
+            List<Object> mapKey = Collections.unmodifiableList(new ArrayList<>(key));
             GroupState st = groups.get(mapKey);
             if (st == null) {
                 st = new GroupState(t);
@@ -94,7 +94,7 @@ public final class AggregateExec implements PhysicalOperator {
             for (int i = 0; i < outputs.size(); i++) {
                 ProjectItem it = outputs.get(i);
                 if (it.expr() instanceof FuncCall fc) {
-                    AggState s = aggs.computeIfAbsent(i, k -> createAgg(fc));
+                    AggState s = aggs.computeIfAbsent(i, _ -> createAgg(fc));
                     Object v = null;
                     if (!fc.starArg()) {
                         if (fc.args().size() != 1)
@@ -118,7 +118,7 @@ public final class AggregateExec implements PhysicalOperator {
         AggState createAgg(FuncCall fc) {
             String fn = fc.name().toUpperCase(Locale.ROOT);
             return switch (fn) {
-                case "COUNT" -> new CountAgg();
+                case "COUNT" -> new CountAgg(fc.starArg());
                 case "SUM" -> new SumAgg();
                 case "AVG" -> new AvgAgg();
                 case "MIN" -> new MinMaxAgg(true);
@@ -135,11 +135,16 @@ public final class AggregateExec implements PhysicalOperator {
     }
 
     private static final class CountAgg implements AggState {
+        private final boolean isStar;
         long c = 0;
+
+        CountAgg(boolean isStar) {
+            this.isStar = isStar;
+        }
 
         @Override
         public void add(Object v) {
-            c++;
+            if (isStar || v != null) c++;
         }
 
         @Override
@@ -149,25 +154,32 @@ public final class AggregateExec implements PhysicalOperator {
     }
 
     private static final class SumAgg implements AggState {
-        boolean f = false;
-        double sf = 0;
-        long sl = 0;
+        boolean isFloat = false;
+        double floatSum = 0;
+        long intSum = 0;
+        boolean hasValue = false;
 
         @Override
         public void add(Object v) {
-            if (v instanceof Float) {
-                f = true;
-                sf += (Float) v;
-            } else if (v instanceof Long) sl += (Long) v;
-            else if (v instanceof Integer) sl += (Integer) v;
-            else if (v == null) {
-                /* ignore */
-            } else throw new IllegalArgumentException("SUM unsupported type: " + v);
+            if (v == null) return;
+            hasValue = true;
+            if (v instanceof Float fv) {
+                isFloat = true;
+                floatSum += fv;
+            } else if (v instanceof Long lv) {
+                intSum += lv;
+            } else if (v instanceof Integer iv) {
+                intSum += iv;
+            } else {
+                throw new IllegalArgumentException("SUM unsupported type: " + v);
+            }
         }
 
         @Override
         public Object result() {
-            return f ? Float.valueOf((float) sf) : Long.valueOf(sl);
+            if (!hasValue) return null;
+            if (isFloat) return Float.valueOf((float) (floatSum + intSum));
+            return Long.valueOf(intSum);
         }
     }
 
@@ -177,23 +189,30 @@ public final class AggregateExec implements PhysicalOperator {
 
         @Override
         public void add(Object v) {
-            if (v instanceof Float) {
-                sum += ((Float) v).doubleValue();
-                cnt++;
-            } else if (v instanceof Long) {
-                sum += ((Long) v).doubleValue();
-                cnt++;
-            } else if (v instanceof Integer) {
-                sum += ((Integer) v).doubleValue();
-                cnt++;
-            } else if (v == null) {
-                /* ignore */
-            } else throw new IllegalArgumentException("AVG unsupported type: " + v);
+            switch (v) {
+                case Float f -> {
+                    sum += f.doubleValue();
+                    cnt++;
+                }
+                case Long l -> {
+                    sum += l.doubleValue();
+                    cnt++;
+                }
+                case Integer i -> {
+                    sum += i.doubleValue();
+                    cnt++;
+                }
+                case null -> {
+                    /* ignore */
+                }
+                default -> throw new IllegalArgumentException("AVG unsupported type: " + v);
+            }
         }
 
         @Override
         public Object result() {
-            return Float.valueOf((float) (sum / (cnt == 0 ? 1 : cnt)));
+            if (cnt == 0) return null;
+            return Float.valueOf((float) (sum / cnt));
         }
     }
 

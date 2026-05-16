@@ -11,6 +11,7 @@ import io.github.anupam.evolvdb.storage.disk.FileId;
 import io.github.anupam.evolvdb.storage.disk.PageId;
 import io.github.anupam.evolvdb.storage.page.Page;
 import io.github.anupam.evolvdb.storage.page.PageFormat;
+import io.github.anupam.evolvdb.storage.page.PageFullException;
 import io.github.anupam.evolvdb.storage.page.RecordId;
 
 /**
@@ -50,8 +51,8 @@ public final class HeapFile {
                 RecordId rid = format.insert(page, record);
                 page.markDirty(true);
                 return rid;
-            } catch (IllegalStateException noSpace) {
-                // Try next page
+            } catch (PageFullException _) {
+                // Page is full; try next page
             } finally {
                 buffer.unpin(pid, page.isDirty());
             }

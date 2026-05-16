@@ -249,4 +249,120 @@ public class ExprEvaluatorTest {
                         leftQuals,
                         rightQuals));
     }
+
+    // ── Three-Valued Logic (3VL) Tests ──
+
+    @Test
+    void eval_null_literal() {
+        assertNull(evaluator.eval(new Literal(pos, null), null, null));
+    }
+
+    @Test
+    void eval_null_comparison_propagates_null() {
+        Expr nullEqOne =
+                new ComparisonExpr(
+                        pos, ComparisonExpr.Op.EQ, new Literal(pos, null), new Literal(pos, 1));
+        assertNull(evaluator.eval(nullEqOne, null, null));
+
+        Expr nullEqNull =
+                new ComparisonExpr(
+                        pos, ComparisonExpr.Op.EQ, new Literal(pos, null), new Literal(pos, null));
+        assertNull(evaluator.eval(nullEqNull, null, null));
+    }
+
+    @Test
+    void eval_null_arithmetic_propagates_null() {
+        Expr nullPlusOne =
+                new BinaryExpr(pos, BinaryExpr.Op.ADD, new Literal(pos, null), new Literal(pos, 1));
+        assertNull(evaluator.eval(nullPlusOne, null, null));
+    }
+
+    @Test
+    void eval_three_valued_and() {
+        // FALSE AND NULL = FALSE (FALSE dominates)
+        Expr falseAndNull =
+                new LogicalExpr(
+                        pos, LogicalExpr.Op.AND, new Literal(pos, false), new Literal(pos, null));
+        assertEquals(false, evaluator.eval(falseAndNull, null, null));
+
+        // TRUE AND NULL = NULL
+        Expr trueAndNull =
+                new LogicalExpr(
+                        pos, LogicalExpr.Op.AND, new Literal(pos, true), new Literal(pos, null));
+        assertNull(evaluator.eval(trueAndNull, null, null));
+
+        // NULL AND NULL = NULL
+        Expr nullAndNull =
+                new LogicalExpr(
+                        pos, LogicalExpr.Op.AND, new Literal(pos, null), new Literal(pos, null));
+        assertNull(evaluator.eval(nullAndNull, null, null));
+    }
+
+    @Test
+    void eval_three_valued_or() {
+        // TRUE OR NULL = TRUE (TRUE dominates)
+        Expr trueOrNull =
+                new LogicalExpr(
+                        pos, LogicalExpr.Op.OR, new Literal(pos, true), new Literal(pos, null));
+        assertEquals(true, evaluator.eval(trueOrNull, null, null));
+
+        // FALSE OR NULL = NULL
+        Expr falseOrNull =
+                new LogicalExpr(
+                        pos, LogicalExpr.Op.OR, new Literal(pos, false), new Literal(pos, null));
+        assertNull(evaluator.eval(falseOrNull, null, null));
+    }
+
+    @Test
+    void eval_three_valued_not() {
+        // NOT NULL = NULL
+        Expr notNull = new LogicalExpr(pos, LogicalExpr.Op.NOT, new Literal(pos, null), null);
+        assertNull(evaluator.eval(notNull, null, null));
+    }
+
+    @Test
+    void eval_is_null() {
+        Expr isNull = new IsNullExpr(pos, new Literal(pos, null), false);
+        assertEquals(true, evaluator.eval(isNull, null, null));
+
+        Expr isNullFalse = new IsNullExpr(pos, new Literal(pos, 42), false);
+        assertEquals(false, evaluator.eval(isNullFalse, null, null));
+    }
+
+    @Test
+    void eval_is_not_null() {
+        Expr isNotNull = new IsNullExpr(pos, new Literal(pos, null), true);
+        assertEquals(false, evaluator.eval(isNotNull, null, null));
+
+        Expr isNotNullTrue = new IsNullExpr(pos, new Literal(pos, 42), true);
+        assertEquals(true, evaluator.eval(isNotNullTrue, null, null));
+    }
+
+    @Test
+    void eval_coalesce() {
+        // COALESCE(NULL, NULL, 42) = 42
+        Expr coalesce =
+                new FuncCall(
+                        pos,
+                        "COALESCE",
+                        List.of(
+                                new Literal(pos, null),
+                                new Literal(pos, null),
+                                new Literal(pos, 42)),
+                        false);
+        assertEquals(42, evaluator.eval(coalesce, null, null));
+
+        // COALESCE(NULL) = NULL
+        Expr allNull = new FuncCall(pos, "COALESCE", List.of(new Literal(pos, null)), false);
+        assertNull(evaluator.eval(allNull, null, null));
+
+        // COALESCE('hello', NULL) = 'hello'
+        Expr firstNonNull =
+                new FuncCall(
+                        pos,
+                        "COALESCE",
+                        List.of(new Literal(pos, "hello"), new Literal(pos, null)),
+                        false);
+        assertEquals("hello", evaluator.eval(firstNonNull, null, null));
+    }
 }

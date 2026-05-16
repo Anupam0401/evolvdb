@@ -32,7 +32,7 @@ class CatalogManagerTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (IOException ignored) {
+                                    } catch (IOException _) {
                                     }
                                 });
             }

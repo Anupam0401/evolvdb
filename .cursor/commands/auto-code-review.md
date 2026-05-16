@@ -13,7 +13,7 @@ Steps:
    - Run the automated review script:
 
      ```bash
-     bash .windsurf/workflows/code_review/auto_review.sh
+     bash .cursor/commands/code_review/auto_review.sh
      ```
 
    - This script automatically:
@@ -41,7 +41,7 @@ Steps:
 
    **Alternative**: If you need to specify a custom base branch:
    ```bash
-   bash .windsurf/workflows/code_review/auto_review.sh --base origin/master
+   bash .cursor/commands/code_review/auto_review.sh --base origin/master
    ```
 
 2. **CRITICAL: Gather Context Before Reviewing**
@@ -142,7 +142,7 @@ Steps:
 ### Workflow Execution:
 - Commands run in workspace root. Approve terminal prompts as needed.
 - The script automatically detects origin/master for PR reviews.
-- Manual override: `bash .windsurf/workflows/code_review/auto_review.sh --base origin/master`
+- Manual override: `bash .cursor/commands/code_review/auto_review.sh --base origin/master`
 - **No Truncation**: Complete diff written to `/tmp/cascade_code_review_latest.txt` (supports up to 50MB)
 - **Direct File Access**: Use `read_file` tool to read complete diff without terminal truncation
 - **Manual Cleanup**: Delete temp file with `rm /tmp/cascade_code_review_latest.txt` when done

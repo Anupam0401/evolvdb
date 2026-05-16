@@ -37,6 +37,8 @@ final class Tokenizer {
         KEYWORDS.put("NOT", TokenType.NOT);
         KEYWORDS.put("TRUE", TokenType.TRUE);
         KEYWORDS.put("FALSE", TokenType.FALSE);
+        KEYWORDS.put("NULL", TokenType.NULL);
+        KEYWORDS.put("IS", TokenType.IS);
         // types
         KEYWORDS.put("INT", TokenType.INT);
         KEYWORDS.put("BIGINT", TokenType.BIGINT);

@@ -193,7 +193,7 @@ public final class Rules {
         public List<PhysicalPlan> apply(
                 LogicalPlan logical, List<PhysicalPlan> optimizedChildren, ExecContext ctx) {
             LogicalUpdate u = (LogicalUpdate) logical;
-            PhysicalPlan c = optimizedChildren.get(0);
+            PhysicalPlan c = withRidScans(optimizedChildren.get(0));
             return List.of(new io.github.anupam.evolvdb.exec.plan.UpdatePlan(c, u));
         }
     }
@@ -209,8 +209,25 @@ public final class Rules {
         public List<PhysicalPlan> apply(
                 LogicalPlan logical, List<PhysicalPlan> optimizedChildren, ExecContext ctx) {
             LogicalDelete d = (LogicalDelete) logical;
-            PhysicalPlan c = optimizedChildren.get(0);
+            PhysicalPlan c = withRidScans(optimizedChildren.get(0));
             return List.of(new io.github.anupam.evolvdb.exec.plan.DeletePlan(c, d));
         }
+    }
+
+    /** Replaces SeqScanPlan leaves with SeqScanWithRidPlan so DML operators receive RecordIds. */
+    private static PhysicalPlan withRidScans(PhysicalPlan plan) {
+        if (plan instanceof SeqScanPlan s) {
+            return new io.github.anupam.evolvdb.exec.plan.SeqScanWithRidPlan(
+                    extractTableName(s), s.schema());
+        }
+        if (plan instanceof FilterPlan f) {
+            PhysicalPlan newChild = withRidScans(f.children().get(0));
+            return new FilterPlan(newChild, f.predicate());
+        }
+        return plan;
+    }
+
+    private static String extractTableName(SeqScanPlan plan) {
+        return plan.tableName();
     }
 }

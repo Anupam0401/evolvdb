@@ -1,3 +1,7 @@
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.9.0"
+}
+
 rootProject.name = "evolvdb"
 include(
     "evolvdb-common",
@@ -10,6 +14,7 @@ include(
     "evolvdb-catalog",
     "evolvdb-core",
     "evolvdb-cli",
+    "evolvdb-server",
     "evolvdb-sql",
     "evolvdb-planner",
     "evolvdb-exec"
