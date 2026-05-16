@@ -74,7 +74,7 @@ public final class SqlParser {
                 String n = take(TokenType.NUMBER, "varchar length").lexeme();
                 try {
                     len = Integer.parseInt(n);
-                } catch (NumberFormatException _) {
+                } catch (NumberFormatException ignored) {
                     throw error("Invalid varchar length");
                 }
                 expect(TokenType.RPAREN, ")");
@@ -306,7 +306,7 @@ public final class SqlParser {
                     long l = Long.parseLong(lex);
                     Object v = (l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE) ? (int) l : l;
                     return new Literal(pos, v);
-                } catch (NumberFormatException _) {
+                } catch (NumberFormatException ignored) {
                     throw error("Invalid number");
                 }
             }

@@ -36,7 +36,7 @@ class AstValidatorTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (Exception _) {
+                                    } catch (Exception ignored) {
                                     }
                                 });
             }

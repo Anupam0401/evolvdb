@@ -43,7 +43,7 @@ public class OptimizerE2ETest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (Exception _) {
+                                    } catch (Exception ignored) {
                                     }
                                 });
             }

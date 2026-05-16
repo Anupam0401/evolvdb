@@ -41,7 +41,7 @@ public class MultiAggregateTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (Exception _) {
+                                    } catch (Exception ignored) {
                                     }
                                 });
             }

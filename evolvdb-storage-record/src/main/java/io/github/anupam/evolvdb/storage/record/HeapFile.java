@@ -51,7 +51,7 @@ public final class HeapFile {
                 RecordId rid = format.insert(page, record);
                 page.markDirty(true);
                 return rid;
-            } catch (PageFullException _) {
+            } catch (PageFullException ignored) {
                 // Page is full; try next page
             } finally {
                 buffer.unpin(pid, page.isDirty());

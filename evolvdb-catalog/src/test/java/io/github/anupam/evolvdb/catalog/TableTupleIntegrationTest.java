@@ -33,7 +33,7 @@ class TableTupleIntegrationTest {
                                 p -> {
                                     try {
                                         Files.deleteIfExists(p);
-                                    } catch (IOException _) {
+                                    } catch (IOException ignored) {
                                     }
                                 });
             }
