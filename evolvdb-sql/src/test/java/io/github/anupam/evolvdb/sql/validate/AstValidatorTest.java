@@ -1,5 +1,9 @@
 package io.github.anupam.evolvdb.sql.validate;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.core.Database;
@@ -11,10 +15,6 @@ import io.github.anupam.evolvdb.types.Type;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class AstValidatorTest {
@@ -22,7 +22,8 @@ class AstValidatorTest {
 
     private Database db() throws Exception {
         tmpDir = Files.createTempDirectory("evolvdb-sql-");
-        DbConfig cfg = DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
+        DbConfig cfg =
+                DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
         return new Database(cfg);
     }
 
@@ -30,7 +31,14 @@ class AstValidatorTest {
     void cleanup() throws Exception {
         if (tmpDir != null && Files.exists(tmpDir)) {
             try (var walk = Files.walk(tmpDir)) {
-                walk.sorted((a,b)->b.getNameCount()-a.getNameCount()).forEach(p -> { try { Files.deleteIfExists(p); } catch (Exception ignored) {} });
+                walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(
+                                p -> {
+                                    try {
+                                        Files.deleteIfExists(p);
+                                    } catch (Exception ignored) {
+                                    }
+                                });
             }
         }
     }
@@ -43,7 +51,8 @@ class AstValidatorTest {
             var validator = new AstValidator();
             String sql = "CREATE TABLE t (a INT, a INT)";
             AstNode ast = parser.parse(sql);
-            assertThrows(IllegalArgumentException.class, () -> validator.validate(ast, db.catalog()));
+            assertThrows(
+                    IllegalArgumentException.class, () -> validator.validate(ast, db.catalog()));
         }
     }
 
@@ -51,10 +60,11 @@ class AstValidatorTest {
     void givenInsertValuesMatch_whenValidate_thenOk() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema schema = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.VARCHAR, 5)
-            ));
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.VARCHAR, 5)));
             cat.createTable("users", schema);
 
             var parser = new SqlParser();
@@ -68,10 +78,11 @@ class AstValidatorTest {
     void givenInsertWrongArity_whenValidate_thenError() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema schema = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.STRING, null)
-            ));
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.STRING, null)));
             cat.createTable("users", schema);
 
             var parser = new SqlParser();
@@ -85,10 +96,11 @@ class AstValidatorTest {
     void givenInsertWrongType_whenValidate_thenError() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema schema = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.STRING, null)
-            ));
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.STRING, null)));
             cat.createTable("users", schema);
 
             var parser = new SqlParser();
@@ -102,10 +114,11 @@ class AstValidatorTest {
     void givenSelectUnknownColumn_whenValidate_thenError() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema schema = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.STRING, null)
-            ));
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.STRING, null)));
             cat.createTable("users", schema);
 
             var parser = new SqlParser();
@@ -119,10 +132,11 @@ class AstValidatorTest {
     void givenSelectWithAliasWrongQualifier_whenValidate_thenError() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema schema = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.STRING, null)
-            ));
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.STRING, null)));
             cat.createTable("users", schema);
 
             var parser = new SqlParser();
@@ -139,6 +153,38 @@ class AstValidatorTest {
             var parser = new SqlParser();
             var validator = new AstValidator();
             AstNode ast = parser.parse("DROP TABLE nope");
+            assertThrows(IllegalArgumentException.class, () -> validator.validate(ast, cat));
+        }
+    }
+
+    @Test
+    void givenNullLiteralInNullableColumn_whenValidate_thenOk() throws Exception {
+        try (Database db = db()) {
+            CatalogManager cat = db.catalog();
+            Schema schema =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.STRING, null)));
+            cat.createTable("users", schema);
+
+            var parser = new SqlParser();
+            var validator = new AstValidator();
+            AstNode ast = parser.parse("INSERT INTO users VALUES (1, NULL)");
+            assertDoesNotThrow(() -> validator.validate(ast, cat));
+        }
+    }
+
+    @Test
+    void givenNullLiteralInNotNullColumn_whenValidate_thenError() throws Exception {
+        try (Database db = db()) {
+            CatalogManager cat = db.catalog();
+            Schema schema = new Schema(List.of(new ColumnMeta("id", Type.INT, null, false)));
+            cat.createTable("strict", schema);
+
+            var parser = new SqlParser();
+            var validator = new AstValidator();
+            AstNode ast = parser.parse("INSERT INTO strict VALUES (NULL)");
             assertThrows(IllegalArgumentException.class, () -> validator.validate(ast, cat));
         }
     }

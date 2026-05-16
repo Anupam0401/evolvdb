@@ -9,14 +9,21 @@ public final class CreateTable extends Statement {
     private final List<ColumnDef> columns;
 
     public CreateTable(SourcePos pos, String tableName, List<ColumnDef> columns) {
+        if (tableName == null || tableName.isBlank())
+            throw new IllegalArgumentException("tableName");
+        Objects.requireNonNull(columns, "columns");
         super(pos);
-        if (tableName == null || tableName.isBlank()) throw new IllegalArgumentException("tableName");
         this.tableName = tableName;
-        this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
+        this.columns = List.copyOf(columns);
     }
 
-    public String tableName() { return tableName; }
-    public List<ColumnDef> columns() { return columns; }
+    public String tableName() {
+        return tableName;
+    }
+
+    public List<ColumnDef> columns() {
+        return columns;
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {

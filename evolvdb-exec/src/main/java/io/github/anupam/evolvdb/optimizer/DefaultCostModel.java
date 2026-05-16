@@ -1,9 +1,9 @@
 package io.github.anupam.evolvdb.optimizer;
 
-import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.optimizer.stats.StatsProvider;
 import io.github.anupam.evolvdb.optimizer.stats.TableStats;
 import io.github.anupam.evolvdb.sql.ast.Expr;
+import io.github.anupam.evolvdb.types.Schema;
 
 /** Naive cost model with simple heuristics. */
 public final class DefaultCostModel implements CostModel {
@@ -12,18 +12,36 @@ public final class DefaultCostModel implements CostModel {
     private final double filterSel;
     private final double joinSel;
 
-    public DefaultCostModel() { this(null, 1000, 0.1, 0.25); }
-    public DefaultCostModel(StatsProvider stats) { this(stats, 1000, 0.1, 0.25); }
-    public DefaultCostModel(StatsProvider stats, double defaultRows, double filterSel, double joinSel) {
+    public DefaultCostModel() {
+        this(null, 1000, 0.1, 0.25);
+    }
+
+    public DefaultCostModel(StatsProvider stats) {
+        this(stats, 1000, 0.1, 0.25);
+    }
+
+    public DefaultCostModel(
+            StatsProvider stats, double defaultRows, double filterSel, double joinSel) {
         this.stats = stats;
         this.defaultRows = defaultRows;
         this.filterSel = filterSel;
         this.joinSel = joinSel;
     }
 
-    @Override public double defaultRowCount() { return defaultRows; }
-    @Override public double filterSelectivity() { return filterSel; }
-    @Override public double joinSelectivity() { return joinSel; }
+    @Override
+    public double defaultRowCount() {
+        return defaultRows;
+    }
+
+    @Override
+    public double filterSelectivity() {
+        return filterSel;
+    }
+
+    @Override
+    public double joinSelectivity() {
+        return joinSel;
+    }
 
     @Override
     public Cost costSeqScan(String tableName, Schema schema) {
@@ -32,7 +50,7 @@ public final class DefaultCostModel implements CostModel {
             TableStats ts = stats.getTableStats(tableName);
             if (ts != null && ts.rowCount() > 0) rows = ts.rowCount();
         }
-        double cpu = rows;         // one unit per row
+        double cpu = rows; // one unit per row
         double io = Math.max(1, rows / 100.0);
         return Cost.of(rows, cpu, io);
     }
@@ -111,5 +129,19 @@ public final class DefaultCostModel implements CostModel {
         double cpu = rows;
         double io = Math.max(1, rows / 100.0);
         return Cost.of(r, cpu, io);
+    }
+
+    @Override
+    public Cost costUpdate(double rows) {
+        double cpu = rows * 1.5;
+        double io = Math.max(1, rows / 100.0);
+        return Cost.of(rows, cpu, io);
+    }
+
+    @Override
+    public Cost costDelete(double rows) {
+        double cpu = rows;
+        double io = Math.max(1, rows / 100.0);
+        return Cost.of(rows, cpu, io);
     }
 }

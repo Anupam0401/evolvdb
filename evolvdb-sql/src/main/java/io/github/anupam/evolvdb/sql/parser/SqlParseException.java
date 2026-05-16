@@ -10,5 +10,7 @@ public class SqlParseException extends RuntimeException {
         this.pos = pos;
     }
 
-    public SourcePos pos() { return pos; }
+    public SourcePos pos() {
+        return pos;
+    }
 }

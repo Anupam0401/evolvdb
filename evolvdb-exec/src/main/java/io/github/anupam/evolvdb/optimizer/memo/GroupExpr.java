@@ -1,10 +1,10 @@
 package io.github.anupam.evolvdb.optimizer.memo;
 
-import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 
 /** One logical expression inside a group, with child group references. */
 public final class GroupExpr {
@@ -16,6 +16,11 @@ public final class GroupExpr {
         this.children = new ArrayList<>(children);
     }
 
-    public LogicalPlan logical() { return logical; }
-    public List<Group> children() { return Collections.unmodifiableList(children); }
+    public LogicalPlan logical() {
+        return logical;
+    }
+
+    public List<Group> children() {
+        return Collections.unmodifiableList(children);
+    }
 }

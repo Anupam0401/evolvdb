@@ -1,24 +1,5 @@
 package io.github.anupam.evolvdb.sql.validate;
 
-import io.github.anupam.evolvdb.catalog.CatalogManager;
-import io.github.anupam.evolvdb.catalog.TableMeta;
-import io.github.anupam.evolvdb.sql.ast.AstNode;
-import io.github.anupam.evolvdb.sql.ast.BinaryExpr;
-import io.github.anupam.evolvdb.sql.ast.ColumnDef;
-import io.github.anupam.evolvdb.sql.ast.ColumnRef;
-import io.github.anupam.evolvdb.sql.ast.ComparisonExpr;
-import io.github.anupam.evolvdb.sql.ast.CreateTable;
-import io.github.anupam.evolvdb.sql.ast.DropTable;
-import io.github.anupam.evolvdb.sql.ast.Expr;
-import io.github.anupam.evolvdb.sql.ast.Insert;
-import io.github.anupam.evolvdb.sql.ast.Literal;
-import io.github.anupam.evolvdb.sql.ast.LogicalExpr;
-import io.github.anupam.evolvdb.sql.ast.Select;
-import io.github.anupam.evolvdb.sql.ast.SelectItem;
-import io.github.anupam.evolvdb.sql.ast.SourcePos;
-import io.github.anupam.evolvdb.types.ColumnMeta;
-import io.github.anupam.evolvdb.types.Schema;
-import io.github.anupam.evolvdb.types.Type;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -26,9 +7,14 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.function.Consumer;
 
-/**
- * Performs basic validation over the AST. Catalog-aware validation will be added in planner.
- */
+import io.github.anupam.evolvdb.catalog.CatalogManager;
+import io.github.anupam.evolvdb.catalog.TableMeta;
+import io.github.anupam.evolvdb.sql.ast.*;
+import io.github.anupam.evolvdb.types.ColumnMeta;
+import io.github.anupam.evolvdb.types.Schema;
+import io.github.anupam.evolvdb.types.Type;
+
+/** Performs basic validation over the AST. Catalog-aware validation will be added in planner. */
 public final class AstValidator {
     public void validate(AstNode node, CatalogManager catalog) {
         switch (node) {
@@ -37,8 +23,9 @@ public final class AstValidator {
             case DropTable dt -> validateDropTable(dt, catalog);
             case Insert ins -> validateInsert(ins, catalog);
             case Select sel -> validateSelect(sel, catalog);
-            default -> {
-            }
+            case Update upd -> validateUpdate(upd, catalog);
+            case Delete del -> validateDelete(del, catalog);
+            default -> {}
         }
     }
 
@@ -50,7 +37,8 @@ public final class AstValidator {
             if (!seen.add(lc)) throw err(ct.pos(), "Duplicate column: " + c.name());
             // basic type/length rule similar to ColumnMeta
             if (c.type() == Type.VARCHAR) {
-                if (c.length() == null || c.length() <= 0) throw err(ct.pos(), "VARCHAR requires positive length");
+                if (c.length() == null || c.length() <= 0)
+                    throw err(ct.pos(), "VARCHAR requires positive length");
             } else if (c.length() != null) {
                 throw err(ct.pos(), "Length not allowed for type: " + c.type());
             }
@@ -81,7 +69,12 @@ public final class AstValidator {
 
         for (List<Expr> row : ins.rows()) {
             if (row.size() != targetCols.size()) {
-                throw err(ins.pos(), "INSERT values count " + row.size() + " does not match columns " + targetCols.size());
+                throw err(
+                        ins.pos(),
+                        "INSERT values count "
+                                + row.size()
+                                + " does not match columns "
+                                + targetCols.size());
             }
             for (int i = 0; i < row.size(); i++) {
                 Expr e = row.get(i);
@@ -98,16 +91,90 @@ public final class AstValidator {
         Set<String> names = new java.util.HashSet<>();
         for (ColumnMeta cm : schema.columns()) names.add(cm.name().toLowerCase(Locale.ROOT));
 
-        Consumer<Expr> checker = new Consumer<>() {
+        Consumer<Expr> checker =
+                new Consumer<>() {
+                    @Override
+                    public void accept(Expr expr) {
+                        if (expr instanceof ColumnRef cr) {
+                            if (cr.table() != null) {
+                                String t = cr.table();
+                                boolean matches =
+                                        t.equalsIgnoreCase(sel.from().tableName())
+                                                || (alias != null && t.equalsIgnoreCase(alias));
+                                if (!matches) throw err(cr.pos(), "Unknown table qualifier: " + t);
+                            }
+                            if (!names.contains(cr.column().toLowerCase(Locale.ROOT))) {
+                                throw err(cr.pos(), "Unknown column: " + cr.column());
+                            }
+                        } else if (expr instanceof BinaryExpr be) {
+                            accept(be.left());
+                            accept(be.right());
+                        } else if (expr instanceof LogicalExpr le) {
+                            accept(le.left());
+                            if (le.right() != null) accept(le.right());
+                        } else if (expr instanceof ComparisonExpr ce) {
+                            accept(ce.left());
+                            accept(ce.right());
+                        } else if (expr instanceof IsNullExpr ine) {
+                            accept(ine.operand());
+                        } else if (expr instanceof FuncCall fc) {
+                            for (Expr a : fc.args()) accept(a);
+                        }
+                    }
+                };
+
+        // check select items
+        for (SelectItem it : sel.items()) {
+            if (!it.isStar()) checker.accept(it.expr());
+        }
+        if (sel.where() != null) checker.accept(sel.where());
+    }
+
+    private void validateUpdate(Update upd, CatalogManager catalog) {
+        TableMeta tm = requireTable(catalog, upd.tableName(), upd.pos());
+        Schema schema = tm.schema();
+        Set<String> colNames = new HashSet<>();
+        for (ColumnMeta cm : schema.columns()) colNames.add(cm.name().toLowerCase(Locale.ROOT));
+
+        for (String col : upd.assignments().keySet()) {
+            if (!colNames.contains(col.toLowerCase(Locale.ROOT))) {
+                throw err(upd.pos(), "Unknown column in UPDATE: " + col);
+            }
+        }
+
+        Consumer<Expr> checker = createExprChecker(upd.tableName(), null, colNames, upd.pos());
+        for (Expr expr : upd.assignments().values()) {
+            checker.accept(expr);
+        }
+        if (upd.where() != null) checker.accept(upd.where());
+    }
+
+    private void validateDelete(Delete del, CatalogManager catalog) {
+        TableMeta tm = requireTable(catalog, del.tableName(), del.pos());
+        Schema schema = tm.schema();
+        Set<String> colNames = new HashSet<>();
+        for (ColumnMeta cm : schema.columns()) colNames.add(cm.name().toLowerCase(Locale.ROOT));
+
+        if (del.where() != null) {
+            Consumer<Expr> checker = createExprChecker(del.tableName(), null, colNames, del.pos());
+            checker.accept(del.where());
+        }
+    }
+
+    private Consumer<Expr> createExprChecker(
+            String tableName, String alias, Set<String> colNames, SourcePos pos) {
+        return new Consumer<>() {
             @Override
             public void accept(Expr expr) {
                 if (expr instanceof ColumnRef cr) {
                     if (cr.table() != null) {
                         String t = cr.table();
-                        boolean matches = t.equalsIgnoreCase(sel.from().tableName()) || (alias != null && t.equalsIgnoreCase(alias));
+                        boolean matches =
+                                t.equalsIgnoreCase(tableName)
+                                        || (alias != null && t.equalsIgnoreCase(alias));
                         if (!matches) throw err(cr.pos(), "Unknown table qualifier: " + t);
                     }
-                    if (!names.contains(cr.column().toLowerCase(Locale.ROOT))) {
+                    if (!colNames.contains(cr.column().toLowerCase(Locale.ROOT))) {
                         throw err(cr.pos(), "Unknown column: " + cr.column());
                     }
                 } else if (expr instanceof BinaryExpr be) {
@@ -119,15 +186,13 @@ public final class AstValidator {
                 } else if (expr instanceof ComparisonExpr ce) {
                     accept(ce.left());
                     accept(ce.right());
+                } else if (expr instanceof IsNullExpr ine) {
+                    accept(ine.operand());
+                } else if (expr instanceof FuncCall fc) {
+                    for (Expr a : fc.args()) accept(a);
                 }
             }
         };
-
-        // check select items
-        for (SelectItem it : sel.items()) {
-            if (!it.isStar()) checker.accept(it.expr());
-        }
-        if (sel.where() != null) checker.accept(sel.where());
     }
 
     private TableMeta requireTable(CatalogManager catalog, String name, SourcePos pos) {
@@ -135,14 +200,17 @@ public final class AstValidator {
     }
 
     private ColumnMeta findColumn(Schema schema, String name, SourcePos pos) {
-        for (ColumnMeta cm : schema.columns())
-            if (cm.name().equalsIgnoreCase(name)) return cm;
+        for (ColumnMeta cm : schema.columns()) if (cm.name().equalsIgnoreCase(name)) return cm;
         throw err(pos, "Unknown column: " + name);
     }
 
     private void validateLiteralTypeCompat(Expr expr, ColumnMeta cm) {
-        if (!(expr instanceof Literal lit)) return; // non-literal: skip static check
+        if (!(expr instanceof Literal lit)) return;
         Object v = lit.value();
+        if (v == null) {
+            if (!cm.nullable()) throw err(lit.pos(), cm.name() + " does not allow NULL");
+            return;
+        }
         Type t = cm.type();
         switch (t) {
             case INT -> {
@@ -160,19 +228,23 @@ public final class AstValidator {
                     throw err(lit.pos(), cm.name() + " expects BIGINT literal");
             }
             case BOOLEAN -> {
-                if (!(v instanceof Boolean)) throw err(lit.pos(), cm.name() + " expects BOOLEAN literal");
+                if (!(v instanceof Boolean))
+                    throw err(lit.pos(), cm.name() + " expects BOOLEAN literal");
             }
             case FLOAT -> {
                 if (!(v instanceof Integer || v instanceof Long))
                     throw err(lit.pos(), cm.name() + " expects numeric literal for FLOAT");
             }
             case STRING -> {
-                if (!(v instanceof String)) throw err(lit.pos(), cm.name() + " expects STRING literal");
+                if (!(v instanceof String))
+                    throw err(lit.pos(), cm.name() + " expects STRING literal");
             }
             case VARCHAR -> {
-                if (!(v instanceof String s)) throw err(lit.pos(), cm.name() + " expects VARCHAR literal");
+                if (!(v instanceof String s))
+                    throw err(lit.pos(), cm.name() + " expects VARCHAR literal");
                 Integer max = cm.length();
-                if (max != null && s.length() > max) throw err(lit.pos(), cm.name() + " exceeds VARCHAR(" + max + ")");
+                if (max != null && s.length() > max)
+                    throw err(lit.pos(), cm.name() + " exceeds VARCHAR(" + max + ")");
             }
             default -> throw new IllegalStateException("Unsupported type: " + t);
         }

@@ -1,11 +1,11 @@
 package io.github.anupam.evolvdb.exec.op;
 
+import java.util.*;
+
 import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
 import io.github.anupam.evolvdb.sql.ast.Expr;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Tuple;
-
-import java.util.*;
 
 /** Simple in-memory hash join (inner, equi-join). Builds a hash table on the right side. */
 public final class HashJoinExec implements PhysicalOperator {
@@ -24,14 +24,13 @@ public final class HashJoinExec implements PhysicalOperator {
     private Iterator<Tuple> matchIter;
 
     public HashJoinExec(
-        PhysicalOperator left,
-        PhysicalOperator right,
-        Expr leftKey,
-        Expr rightKey,
-        Schema outSchema,
-        Set<String> leftQuals,
-        Set<String> rightQuals
-    ) {
+            PhysicalOperator left,
+            PhysicalOperator right,
+            Expr leftKey,
+            Expr rightKey,
+            Schema outSchema,
+            Set<String> leftQuals,
+            Set<String> rightQuals) {
         this.left = left;
         this.right = right;
         this.leftKey = leftKey;
@@ -48,7 +47,7 @@ public final class HashJoinExec implements PhysicalOperator {
         // Build hash on right
         for (Tuple t = right.next(); t != null; t = right.next()) {
             Object k = evaluator.eval(rightKey, t, right.schema());
-            hash.computeIfAbsent(k, kk -> new ArrayList<>()).add(t);
+            hash.computeIfAbsent(k, _ -> new ArrayList<>()).add(t);
         }
         right.close();
         curLeft = left.next();
@@ -90,5 +89,7 @@ public final class HashJoinExec implements PhysicalOperator {
     }
 
     @Override
-    public Schema schema() { return outSchema; }
+    public Schema schema() {
+        return outSchema;
+    }
 }

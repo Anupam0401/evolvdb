@@ -1,9 +1,7 @@
 package io.github.anupam.evolvdb.storage.disk;
 
-import io.github.anupam.evolvdb.config.DbConfig;
-import io.github.anupam.evolvdb.common.DbException;
-
 import java.io.IOException;
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -14,9 +12,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * NIO-based DiskManager. Provides page-level I/O with fixed page size.
- */
+import io.github.anupam.evolvdb.common.DbException;
+import io.github.anupam.evolvdb.config.DbConfig;
+
+/** NIO-based DiskManager. Provides page-level I/O with fixed page size using MemorySegment. */
 public final class NioDiskManager implements DiskManager {
     private final DbConfig config;
     private final int pageSize;
@@ -42,29 +41,38 @@ public final class NioDiskManager implements DiskManager {
     }
 
     @Override
-    public void readPage(PageId pageId, ByteBuffer dst) throws IOException {
-        ensureRemaining(dst, pageSize, "dst");
+    public void readPage(PageId pageId, MemorySegment dst) throws IOException {
+        if (dst.byteSize() < pageSize) {
+            throw new IllegalArgumentException("dst must have at least " + pageSize + " bytes");
+        }
         var ch = openOrCreate(pageId.fileId());
         long pos = (long) pageId.pageNo() * pageSize;
-        readFully(ch, pos, dst, pageSize);
+        ByteBuffer buf = dst.asByteBuffer();
+        buf.clear().limit(pageSize);
+        readFully(ch, pos, buf, pageSize);
     }
 
     @Override
-    public void writePage(PageId pageId, ByteBuffer src, long lsn) throws IOException {
-        ensureRemaining(src, pageSize, "src");
+    public void writePage(PageId pageId, MemorySegment src, long lsn) throws IOException {
+        if (src.byteSize() < pageSize) {
+            throw new IllegalArgumentException("src must have at least " + pageSize + " bytes");
+        }
         var ch = openOrCreate(pageId.fileId());
         long pos = (long) pageId.pageNo() * pageSize;
-        ByteBuffer slice = src.duplicate();
-        int limit = slice.position() + pageSize;
-        slice.limit(limit);
-        writeFully(ch, pos, slice);
+        ByteBuffer buf = src.asByteBuffer();
+        buf.clear().limit(pageSize);
+        writeFully(ch, pos, buf);
     }
 
     @Override
     public void sync() throws IOException {
         IOException first = null;
         for (var ch : openFiles.values()) {
-            try { ch.force(true); } catch (IOException e) { if (first == null) first = e; }
+            try {
+                ch.force(true);
+            } catch (IOException e) {
+                if (first == null) first = e;
+            }
         }
         if (first != null) throw first;
     }
@@ -82,32 +90,38 @@ public final class NioDiskManager implements DiskManager {
     public void close() throws IOException {
         IOException first = null;
         for (var entry : openFiles.entrySet()) {
-            try { entry.getValue().close(); } catch (IOException e) { if (first == null) first = e; }
+            try {
+                entry.getValue().close();
+            } catch (IOException e) {
+                if (first == null) first = e;
+            }
         }
         openFiles.clear();
         if (first != null) throw first;
     }
 
     private FileChannel openOrCreate(FileId fileId) throws IOException {
-        return openFiles.computeIfAbsent(fileId, id -> {
-            try {
-                Path p = resolvePath(id);
-                return FileChannel.open(p, EnumSet.of(StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE));
-            } catch (IOException e) {
-                throw new DbException("Failed to open file: " + id.name(), e);
-            }
-        });
+        return openFiles.computeIfAbsent(
+                fileId,
+                id -> {
+                    try {
+                        Path p = resolvePath(id);
+                        return FileChannel.open(
+                                p,
+                                EnumSet.of(
+                                        StandardOpenOption.CREATE,
+                                        StandardOpenOption.READ,
+                                        StandardOpenOption.WRITE));
+                    } catch (IOException e) {
+                        throw new DbException("Failed to open file: " + id.name(), e);
+                    }
+                });
     }
 
     private Path resolvePath(FileId fileId) {
-        String fileName = fileId.name().endsWith(".evolv") ? fileId.name() : fileId.name() + ".evolv";
+        String fileName =
+                fileId.name().endsWith(".evolv") ? fileId.name() : fileId.name() + ".evolv";
         return config.dataDir().resolve(fileName);
-    }
-
-    private static void ensureRemaining(ByteBuffer buf, int need, String label) {
-        if (buf.remaining() < need) {
-            throw new IllegalArgumentException(label + " must have at least " + need + " bytes remaining");
-        }
     }
 
     private static void writeFully(FileChannel ch, long pos, ByteBuffer src) throws IOException {
@@ -120,14 +134,13 @@ public final class NioDiskManager implements DiskManager {
         }
     }
 
-    private static void readFully(FileChannel ch, long pos, ByteBuffer dst, int len) throws IOException {
+    private static void readFully(FileChannel ch, long pos, ByteBuffer dst, int len)
+            throws IOException {
         int read = 0;
-        int startPos = dst.position();
         while (read < len) {
             int n = ch.read(dst, pos + read);
             if (n < 0) throw new IOException("Unexpected EOF while reading");
             read += n;
         }
-        dst.limit(startPos + len);
     }
 }

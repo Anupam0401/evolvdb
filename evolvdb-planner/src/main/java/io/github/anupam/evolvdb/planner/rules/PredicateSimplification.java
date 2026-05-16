@@ -23,17 +23,21 @@ public final class PredicateSimplification implements Rule {
 
     private static boolean containsDoubleNegation(Expr e) {
         if (e instanceof LogicalExpr le && le.op() == LogicalExpr.Op.NOT) {
-            return le.left() instanceof LogicalExpr ll && ((LogicalExpr) le.left()).op() == LogicalExpr.Op.NOT;
+            return le.left() instanceof LogicalExpr ll
+                    && ((LogicalExpr) le.left()).op() == LogicalExpr.Op.NOT;
         }
         if (e instanceof LogicalExpr le) {
-            return containsDoubleNegation(le.left()) || (le.right() != null && containsDoubleNegation(le.right()));
+            return containsDoubleNegation(le.left())
+                    || (le.right() != null && containsDoubleNegation(le.right()));
         }
         return false;
     }
 
     private static Expr simplify(Expr e) {
         if (e instanceof LogicalExpr le) {
-            if (le.op() == LogicalExpr.Op.NOT && le.left() instanceof LogicalExpr ll && ll.op() == LogicalExpr.Op.NOT) {
+            if (le.op() == LogicalExpr.Op.NOT
+                    && le.left() instanceof LogicalExpr ll
+                    && ll.op() == LogicalExpr.Op.NOT) {
                 return simplify(ll.left());
             }
             Expr left = simplify(le.left());

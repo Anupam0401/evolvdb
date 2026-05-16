@@ -2,6 +2,7 @@ package io.github.anupam.evolvdb.exec.op;
 
 import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
 import io.github.anupam.evolvdb.sql.ast.Expr;
+import io.github.anupam.evolvdb.storage.page.RecordId;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Tuple;
 
@@ -16,11 +17,14 @@ public final class FilterExec implements PhysicalOperator {
         this.predicate = predicate;
     }
 
-    @Override public void open() throws Exception { child.open(); }
+    @Override
+    public void open() throws Exception {
+        child.open();
+    }
 
     @Override
     public Tuple next() throws Exception {
-        for (;;) {
+        for (; ; ) {
             Tuple t = child.next();
             if (t == null) return null;
             Object v = evaluator.eval(predicate, t, child.schema());
@@ -28,7 +32,18 @@ public final class FilterExec implements PhysicalOperator {
         }
     }
 
-    @Override public void close() throws Exception { child.close(); }
+    @Override
+    public void close() throws Exception {
+        child.close();
+    }
 
-    @Override public Schema schema() { return child.schema(); }
+    @Override
+    public Schema schema() {
+        return child.schema();
+    }
+
+    @Override
+    public RecordId lastRecordId() {
+        return child.lastRecordId();
+    }
 }

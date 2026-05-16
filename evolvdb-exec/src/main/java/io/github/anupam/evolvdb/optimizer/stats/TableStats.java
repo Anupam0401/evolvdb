@@ -13,9 +13,18 @@ public final class TableStats {
         this.tableName = tableName;
     }
 
-    public String tableName() { return tableName; }
-    public long rowCount() { return rowCount; }
-    public TableStats rowCount(long rc) { this.rowCount = rc; return this; }
+    public String tableName() {
+        return tableName;
+    }
+
+    public long rowCount() {
+        return rowCount;
+    }
+
+    public TableStats rowCount(long rc) {
+        this.rowCount = rc;
+        return this;
+    }
 
     public TableStats putColumnStats(String columnName, ColumnStats stats) {
         columns.put(columnName.toLowerCase(Locale.ROOT), stats);

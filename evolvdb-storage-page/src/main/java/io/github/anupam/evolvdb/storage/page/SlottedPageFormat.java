@@ -1,226 +1,191 @@
 package io.github.anupam.evolvdb.storage.page;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.util.Optional;
 
 /**
- * Slotted page layout.
- * Header (little-endian, binary):
- *  - int pageType (1 for heap)
- *  - int lsn
- *  - short slotCount
- *  - short freeStartOffset
- * Slots grow from the end of the page backward; payload grows from header forward.
- * Each slot entry: short offset, short len (len < 0 indicates tombstone/deleted).
+ * Slotted page layout using MemorySegment for structured access.
  *
- * This class implements insert/read/delete, free space tracking, and compaction on demand.
+ * <p>Header (little-endian): int pageType (4 bytes), int lsn (4 bytes), short slotCount (2 bytes),
+ * short freeStartOffset (2 bytes) = 12 bytes total.
+ *
+ * <p>Slots grow from the end of the page backward; payload grows from header forward. Each slot
+ * entry: short offset (2 bytes), short len (2 bytes). Negative len indicates tombstone/deleted.
  */
 public final class SlottedPageFormat implements PageFormat {
     public static final int PAGE_TYPE_HEAP = 1;
 
-    private static final int OFF_TYPE = 0;          // int
-    private static final int OFF_LSN = 4;           // int
-    private static final int OFF_SLOT_COUNT = 8;    // short
-    private static final int OFF_FREE_START = 10;   // short
+    private static final long OFF_TYPE = 0;
+    private static final long OFF_LSN = 4;
+    private static final long OFF_SLOT_COUNT = 8;
+    private static final long OFF_FREE_START = 10;
     private static final int HEADER_SIZE = 12;
-    private static final int SLOT_ENTRY_SIZE = 4;   // short offset, short len
+    private static final int SLOT_ENTRY_SIZE = 4;
+
+    private static final ValueLayout.OfInt INT_LE =
+            ValueLayout.JAVA_INT_UNALIGNED.withOrder(java.nio.ByteOrder.LITTLE_ENDIAN);
+    private static final ValueLayout.OfShort SHORT_LE =
+            ValueLayout.JAVA_SHORT_UNALIGNED.withOrder(java.nio.ByteOrder.LITTLE_ENDIAN);
 
     @Override
     public void init(Page page) {
-        ByteBuffer buf = page.buffer();
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        buf.putInt(OFF_TYPE, PAGE_TYPE_HEAP);
-        buf.putInt(OFF_LSN, 0);
-        buf.putShort(OFF_SLOT_COUNT, (short) 0);
-        buf.putShort(OFF_FREE_START, (short) HEADER_SIZE);
+        MemorySegment seg = page.segment();
+        seg.set(INT_LE, OFF_TYPE, PAGE_TYPE_HEAP);
+        seg.set(INT_LE, OFF_LSN, 0);
+        seg.set(SHORT_LE, OFF_SLOT_COUNT, (short) 0);
+        seg.set(SHORT_LE, OFF_FREE_START, (short) HEADER_SIZE);
     }
 
     @Override
     public int freeSpace(Page page) {
-        ByteBuffer buf = page.buffer();
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        int cap = buf.capacity();
-        int slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
-        int freeStart = Short.toUnsignedInt(buf.getShort(OFF_FREE_START));
+        MemorySegment seg = page.segment();
+        int cap = (int) seg.byteSize();
+        int slotCount = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_SLOT_COUNT));
+        int freeStart = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_FREE_START));
         int slotDirStart = cap - slotCount * SLOT_ENTRY_SIZE;
         return Math.max(0, slotDirStart - freeStart);
     }
 
     @Override
     public RecordId insert(Page page, byte[] record) {
-        ByteBuffer buf = page.buffer();
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        int cap = buf.capacity();
-        int slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
-        int freeStart = Short.toUnsignedInt(buf.getShort(OFF_FREE_START));
+        MemorySegment seg = page.segment();
+        int cap = (int) seg.byteSize();
+        int slotCount = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_SLOT_COUNT));
+        int freeStart = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_FREE_START));
         int slotDirStart = cap - slotCount * SLOT_ENTRY_SIZE;
 
         int need = record.length + SLOT_ENTRY_SIZE;
         if ((slotDirStart - freeStart) < need) {
-            compactInPlace(buf);
-            // reload values after compaction
-            slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
-            freeStart = Short.toUnsignedInt(buf.getShort(OFF_FREE_START));
+            compactInPlace(seg);
+            slotCount = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_SLOT_COUNT));
+            freeStart = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_FREE_START));
             slotDirStart = cap - slotCount * SLOT_ENTRY_SIZE;
             if ((slotDirStart - freeStart) < need) {
-                throw new IllegalStateException("Insufficient space for record of " + record.length + " bytes");
+                throw new PageFullException(need, slotDirStart - freeStart);
             }
         }
 
-        // Write payload
-        buf.position(freeStart);
-        buf.put(record);
+        MemorySegment.copy(MemorySegment.ofArray(record), 0, seg, freeStart, record.length);
         int recOffset = freeStart;
         freeStart += record.length;
 
-        // Write slot entry at new slot position
         int newSlotIndex = slotCount;
-        int slotPos = cap - (newSlotIndex + 1) * SLOT_ENTRY_SIZE;
-        buf.putShort(slotPos, (short) recOffset);
-        buf.putShort(slotPos + 2, (short) record.length);
+        long slotPos = cap - (long) (newSlotIndex + 1) * SLOT_ENTRY_SIZE;
+        seg.set(SHORT_LE, slotPos, (short) recOffset);
+        seg.set(SHORT_LE, slotPos + 2, (short) record.length);
 
-        // Update header
-        buf.putShort(OFF_SLOT_COUNT, (short) (slotCount + 1));
-        buf.putShort(OFF_FREE_START, (short) freeStart);
+        seg.set(SHORT_LE, OFF_SLOT_COUNT, (short) (slotCount + 1));
+        seg.set(SHORT_LE, OFF_FREE_START, (short) freeStart);
 
         return new RecordId(page.id(), (short) newSlotIndex);
     }
 
     @Override
     public Optional<byte[]> read(Page page, RecordId rid) {
-        ByteBuffer buf = page.buffer();
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        int cap = buf.capacity();
-        int slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
+        MemorySegment seg = page.segment();
+        int cap = (int) seg.byteSize();
+        int slotCount = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_SLOT_COUNT));
         int slot = Short.toUnsignedInt(rid.slot());
         if (slot >= slotCount) return Optional.empty();
-        int slotPos = cap - (slot + 1) * SLOT_ENTRY_SIZE;
-        int off = Short.toUnsignedInt(buf.getShort(slotPos));
-        short lenRaw = buf.getShort(slotPos + 2);
+        long slotPos = cap - (long) (slot + 1) * SLOT_ENTRY_SIZE;
+        int off = Short.toUnsignedInt(seg.get(SHORT_LE, slotPos));
+        short lenRaw = seg.get(SHORT_LE, slotPos + 2);
         int len = Math.abs(lenRaw);
         if (lenRaw <= 0) return Optional.empty();
         if (off + len > cap) return Optional.empty();
         byte[] out = new byte[len];
-        int oldPos = buf.position();
-        buf.position(off);
-        buf.get(out, 0, len);
-        buf.position(oldPos);
+        MemorySegment.copy(seg, off, MemorySegment.ofArray(out), 0, len);
         return Optional.of(out);
     }
 
     @Override
     public void delete(Page page, RecordId rid) {
-        ByteBuffer buf = page.buffer();
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        int cap = buf.capacity();
-        int slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
+        MemorySegment seg = page.segment();
+        int cap = (int) seg.byteSize();
+        int slotCount = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_SLOT_COUNT));
         int slot = Short.toUnsignedInt(rid.slot());
         if (slot >= slotCount) return;
-        int slotPos = cap - (slot + 1) * SLOT_ENTRY_SIZE;
-        short lenRaw = buf.getShort(slotPos + 2);
+        long slotPos = cap - (long) (slot + 1) * SLOT_ENTRY_SIZE;
+        short lenRaw = seg.get(SHORT_LE, slotPos + 2);
         if (lenRaw > 0) {
-            buf.putShort(slotPos + 2, (short) -lenRaw);
+            seg.set(SHORT_LE, slotPos + 2, (short) -lenRaw);
         }
     }
 
-    // --- M5: scanning helpers ---
-
     @Override
     public int slotCount(Page page) {
-        ByteBuffer buf = page.buffer();
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        return Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
+        MemorySegment seg = page.segment();
+        return Short.toUnsignedInt(seg.get(SHORT_LE, OFF_SLOT_COUNT));
     }
 
     @Override
     public boolean isLive(Page page, short slotIndex) {
         if (slotIndex < 0) return false;
-        ByteBuffer buf = page.buffer();
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        int cap = buf.capacity();
-        int slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
+        MemorySegment seg = page.segment();
+        int cap = (int) seg.byteSize();
+        int slotCount = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_SLOT_COUNT));
         int idx = Short.toUnsignedInt(slotIndex);
         if (idx >= slotCount) return false;
-        int slotPos = cap - (idx + 1) * SLOT_ENTRY_SIZE;
-        short lenRaw = buf.getShort(slotPos + 2);
+        long slotPos = cap - (long) (idx + 1) * SLOT_ENTRY_SIZE;
+        short lenRaw = seg.get(SHORT_LE, slotPos + 2);
         return lenRaw > 0;
     }
 
-    // --- M5: in-place update when feasible ---
-
     @Override
     public boolean update(Page page, RecordId rid, byte[] newRecord) {
-        ByteBuffer buf = page.buffer();
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        int cap = buf.capacity();
-        int slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
+        MemorySegment seg = page.segment();
+        int cap = (int) seg.byteSize();
+        int slotCount = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_SLOT_COUNT));
         int slot = Short.toUnsignedInt(rid.slot());
         if (slot >= slotCount) return false;
-        int slotPos = cap - (slot + 1) * SLOT_ENTRY_SIZE;
-        int off = Short.toUnsignedInt(buf.getShort(slotPos));
-        short lenRaw = buf.getShort(slotPos + 2);
-        if (lenRaw <= 0) return false; // deleted
+        long slotPos = cap - (long) (slot + 1) * SLOT_ENTRY_SIZE;
+        int off = Short.toUnsignedInt(seg.get(SHORT_LE, slotPos));
+        short lenRaw = seg.get(SHORT_LE, slotPos + 2);
+        if (lenRaw <= 0) return false;
         int currLen = lenRaw;
 
         int newLen = newRecord.length;
         if (newLen <= currLen) {
-            // Overwrite in place, shrink logically by updating length
-            int old = buf.position();
-            buf.position(off);
-            buf.put(newRecord);
-            buf.position(old);
-            buf.putShort(slotPos + 2, (short) newLen);
+            MemorySegment.copy(MemorySegment.ofArray(newRecord), 0, seg, off, newLen);
+            seg.set(SHORT_LE, slotPos + 2, (short) newLen);
             return true;
         }
 
-        // Try to grow in place only if this record is at the end of payload region and there is contiguous free space
-        int freeStart = Short.toUnsignedInt(buf.getShort(OFF_FREE_START));
+        int freeStart = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_FREE_START));
         int slotDirStart = cap - slotCount * SLOT_ENTRY_SIZE;
         int extra = newLen - currLen;
         boolean atEnd = (off + currLen) == freeStart;
         boolean haveContiguous = (slotDirStart - freeStart) >= extra;
         if (atEnd && haveContiguous) {
-            int old = buf.position();
-            buf.position(off);
-            buf.put(newRecord);
-            buf.position(old);
-            buf.putShort(slotPos + 2, (short) newLen);
-            buf.putShort(OFF_FREE_START, (short) (freeStart + extra));
+            MemorySegment.copy(MemorySegment.ofArray(newRecord), 0, seg, off, newLen);
+            seg.set(SHORT_LE, slotPos + 2, (short) newLen);
+            seg.set(SHORT_LE, OFF_FREE_START, (short) (freeStart + extra));
             return true;
         }
 
-        // Not possible in place
         return false;
     }
 
-    /** Packs live records from slots into a contiguous area starting at HEADER_SIZE; updates offsets and freeStart. */
-    private void compactInPlace(ByteBuffer buf) {
-        buf.order(ByteOrder.LITTLE_ENDIAN);
-        int cap = buf.capacity();
-        int slotCount = Short.toUnsignedInt(buf.getShort(OFF_SLOT_COUNT));
+    private void compactInPlace(MemorySegment seg) {
+        int cap = (int) seg.byteSize();
+        int slotCount = Short.toUnsignedInt(seg.get(SHORT_LE, OFF_SLOT_COUNT));
         int writePtr = HEADER_SIZE;
 
         for (int i = 0; i < slotCount; i++) {
-            int slotPos = cap - (i + 1) * SLOT_ENTRY_SIZE;
-            short lenRaw = buf.getShort(slotPos + 2);
+            long slotPos = cap - (long) (i + 1) * SLOT_ENTRY_SIZE;
+            short lenRaw = seg.get(SHORT_LE, slotPos + 2);
             int len = Math.abs(lenRaw);
             if (lenRaw <= 0) {
-                continue; // tombstone
+                continue;
             }
-            int off = Short.toUnsignedInt(buf.getShort(slotPos));
-            // Copy record to writePtr
-            byte[] temp = new byte[len];
-            int old = buf.position();
-            buf.position(off);
-            buf.get(temp, 0, len);
-            buf.position(writePtr);
-            buf.put(temp, 0, len);
-            buf.position(old);
-            // Update slot offset to new location
-            buf.putShort(slotPos, (short) writePtr);
+            int off = Short.toUnsignedInt(seg.get(SHORT_LE, slotPos));
+            if (off != writePtr) {
+                MemorySegment.copy(seg, off, seg, writePtr, len);
+            }
+            seg.set(SHORT_LE, slotPos, (short) writePtr);
             writePtr += len;
         }
-        buf.putShort(OFF_FREE_START, (short) writePtr);
+        seg.set(SHORT_LE, OFF_FREE_START, (short) writePtr);
     }
 }

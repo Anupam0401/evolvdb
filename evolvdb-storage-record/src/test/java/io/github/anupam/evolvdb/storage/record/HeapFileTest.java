@@ -1,5 +1,11 @@
 package io.github.anupam.evolvdb.storage.record;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.storage.buffer.DefaultBufferPool;
 import io.github.anupam.evolvdb.storage.disk.FileId;
@@ -8,12 +14,6 @@ import io.github.anupam.evolvdb.storage.page.RecordId;
 import io.github.anupam.evolvdb.storage.page.SlottedPageFormat;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,9 +29,14 @@ class HeapFileTest {
     void cleanup() throws IOException {
         if (tmpDir != null && Files.exists(tmpDir)) {
             try (var paths = Files.walk(tmpDir)) {
-                paths.sorted((a, b) -> b.getNameCount() - a.getNameCount()).forEach(p -> {
-                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-                });
+                paths.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(
+                                p -> {
+                                    try {
+                                        Files.deleteIfExists(p);
+                                    } catch (IOException ignored) {
+                                    }
+                                });
             }
         }
     }
@@ -40,7 +45,7 @@ class HeapFileTest {
     void givenEmptyFile_whenInsert_thenRecordReadable() throws Exception {
         var config = cfg(8);
         try (var dm = new NioDiskManager(config);
-             var bp = new DefaultBufferPool(config, dm)) {
+                var bp = new DefaultBufferPool(config, dm)) {
             var fmt = new SlottedPageFormat();
             var hf = new HeapFile(new FileId("t1"), dm, bp, fmt);
             byte[] rec = "hello".getBytes();
@@ -53,7 +58,7 @@ class HeapFileTest {
     void givenPageFull_whenInsert_thenAllocatesNewPage() throws Exception {
         var config = cfg(4);
         try (var dm = new NioDiskManager(config);
-             var bp = new DefaultBufferPool(config, dm)) {
+                var bp = new DefaultBufferPool(config, dm)) {
             var fmt = new SlottedPageFormat();
             var hf = new HeapFile(new FileId("t2"), dm, bp, fmt);
 
@@ -76,7 +81,7 @@ class HeapFileTest {
     void givenDeletions_whenInsertLarge_thenCompactionAllowsInsert() throws Exception {
         var config = cfg(8);
         try (var dm = new NioDiskManager(config);
-             var bp = new DefaultBufferPool(config, dm)) {
+                var bp = new DefaultBufferPool(config, dm)) {
             var fmt = new SlottedPageFormat();
             var hf = new HeapFile(new FileId("t3"), dm, bp, fmt);
 

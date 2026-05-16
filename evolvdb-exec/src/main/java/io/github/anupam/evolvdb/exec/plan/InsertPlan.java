@@ -1,5 +1,7 @@
 package io.github.anupam.evolvdb.exec.plan;
 
+import java.util.List;
+
 import io.github.anupam.evolvdb.exec.ExecContext;
 import io.github.anupam.evolvdb.exec.op.InsertExec;
 import io.github.anupam.evolvdb.exec.op.PhysicalOperator;
@@ -9,8 +11,6 @@ import io.github.anupam.evolvdb.planner.logical.LogicalInsert;
 import io.github.anupam.evolvdb.types.ColumnMeta;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Type;
-
-import java.util.List;
 
 public final class InsertPlan implements PhysicalPlan {
     private final LogicalInsert insert;
@@ -25,7 +25,9 @@ public final class InsertPlan implements PhysicalPlan {
     }
 
     @Override
-    public List<PhysicalPlan> children() { return List.of(); }
+    public List<PhysicalPlan> children() {
+        return List.of();
+    }
 
     @Override
     public PhysicalOperator create(ExecContext context) {

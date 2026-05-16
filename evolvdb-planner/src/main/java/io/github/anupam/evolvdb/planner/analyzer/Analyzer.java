@@ -1,13 +1,13 @@
 package io.github.anupam.evolvdb.planner.analyzer;
 
+import java.util.List;
+import java.util.Objects;
+
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.planner.logical.LogicalPlan;
 import io.github.anupam.evolvdb.planner.rules.Rule;
 import io.github.anupam.evolvdb.planner.rules.RuleEngine;
 import io.github.anupam.evolvdb.sql.ast.Statement;
-
-import java.util.List;
-import java.util.Objects;
 
 /** Orchestrates binding and rule-based transformations to produce a logical plan. */
 public final class Analyzer {

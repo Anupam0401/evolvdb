@@ -1,6 +1,5 @@
 package io.github.anupam.evolvdb.sql.parser;
 
-import io.github.anupam.evolvdb.sql.ast.SourcePos;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,9 +10,11 @@ class TokenizerTest {
     void givenSelectWithLiterals_whenTokenize_thenTokensSequenceMatches() {
         String sql = "SELECT * FROM users WHERE id >= 10 AND name = 'O''Reilly'";
         Tokenizer tz = new Tokenizer(sql);
-        Token[] tokens = new Token[] {
-                tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next()
-        };
+        Token[] tokens =
+                new Token[] {
+                    tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next(),
+                    tz.next(), tz.next(), tz.next(), tz.next(), tz.next(), tz.next()
+                };
         assertEquals(TokenType.SELECT, tokens[0].type());
         assertEquals(TokenType.STAR, tokens[1].type());
         assertEquals(TokenType.FROM, tokens[2].type());

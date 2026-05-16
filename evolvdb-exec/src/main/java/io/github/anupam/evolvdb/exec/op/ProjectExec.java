@@ -1,12 +1,12 @@
 package io.github.anupam.evolvdb.exec.op;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
 import io.github.anupam.evolvdb.planner.logical.ProjectItem;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Tuple;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /** Computes projection expressions and produces tuples with the given output schema. */
 public final class ProjectExec implements PhysicalOperator {
@@ -21,7 +21,10 @@ public final class ProjectExec implements PhysicalOperator {
         this.outSchema = outSchema;
     }
 
-    @Override public void open() throws Exception { child.open(); }
+    @Override
+    public void open() throws Exception {
+        child.open();
+    }
 
     @Override
     public Tuple next() throws Exception {
@@ -35,6 +38,13 @@ public final class ProjectExec implements PhysicalOperator {
         return new Tuple(outSchema, out);
     }
 
-    @Override public void close() throws Exception { child.close(); }
-    @Override public Schema schema() { return outSchema; }
+    @Override
+    public void close() throws Exception {
+        child.close();
+    }
+
+    @Override
+    public Schema schema() {
+        return outSchema;
+    }
 }

@@ -1,14 +1,14 @@
 package io.github.anupam.evolvdb.exec.op;
 
-import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
-import io.github.anupam.evolvdb.sql.ast.Expr;
-import io.github.anupam.evolvdb.types.Schema;
-import io.github.anupam.evolvdb.types.Tuple;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import io.github.anupam.evolvdb.exec.expr.ExprEvaluator;
+import io.github.anupam.evolvdb.sql.ast.Expr;
+import io.github.anupam.evolvdb.types.Schema;
+import io.github.anupam.evolvdb.types.Tuple;
 
 /** Baseline nested-loop join (inner) with optional predicate. Buffers right side in memory. */
 public final class NestedLoopJoinExec implements PhysicalOperator {
@@ -25,12 +25,13 @@ public final class NestedLoopJoinExec implements PhysicalOperator {
     private Tuple curLeft;
     private int rightIdx;
 
-    public NestedLoopJoinExec(PhysicalOperator left,
-                              PhysicalOperator right,
-                              Expr predicate,
-                              Schema outSchema,
-                              Set<String> leftQuals,
-                              Set<String> rightQuals) {
+    public NestedLoopJoinExec(
+            PhysicalOperator left,
+            PhysicalOperator right,
+            Expr predicate,
+            Schema outSchema,
+            Set<String> leftQuals,
+            Set<String> rightQuals) {
         this.left = left;
         this.right = right;
         this.predicate = predicate;
@@ -55,9 +56,18 @@ public final class NestedLoopJoinExec implements PhysicalOperator {
         while (curLeft != null) {
             while (rightIdx < rightRows.size()) {
                 Tuple r = rightRows.get(rightIdx++);
-                if (predicate == null || Boolean.TRUE.equals(
-                        evaluator.eval(predicate, curLeft, left.schema(), r, right.schema(), leftQuals, rightQuals))) {
-                    List<Object> vals = new ArrayList<>(left.schema().size() + right.schema().size());
+                if (predicate == null
+                        || Boolean.TRUE.equals(
+                                evaluator.eval(
+                                        predicate,
+                                        curLeft,
+                                        left.schema(),
+                                        r,
+                                        right.schema(),
+                                        leftQuals,
+                                        rightQuals))) {
+                    List<Object> vals =
+                            new ArrayList<>(left.schema().size() + right.schema().size());
                     vals.addAll(curLeft.values());
                     vals.addAll(r.values());
                     return new Tuple(outSchema, vals);
@@ -78,5 +88,8 @@ public final class NestedLoopJoinExec implements PhysicalOperator {
         rightIdx = 0;
     }
 
-    @Override public Schema schema() { return outSchema; }
+    @Override
+    public Schema schema() {
+        return outSchema;
+    }
 }

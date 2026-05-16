@@ -10,7 +10,9 @@ public abstract class AstNode {
         this.pos = Objects.requireNonNull(pos, "pos");
     }
 
-    public SourcePos pos() { return pos; }
+    public SourcePos pos() {
+        return pos;
+    }
 
     public abstract <R, C> R accept(AstVisitor<R, C> visitor, C context);
 }

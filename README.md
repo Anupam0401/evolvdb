@@ -23,14 +23,38 @@ A Postgres-inspired SQL database built from scratch in Java with clean architect
 - M10: Physical Planner & Execution (Volcano) — Physical operators, iterator engine. Docs: `docs/execution/physical-plans.md`
 - M11: Query Optimizer — Volcano-style optimizer with memo, cost model, join algorithms (NLJ/HashJoin/SortMergeJoin), predicate pushdown, projection pruning, join reordering. Docs: `docs/optimizer/volcano.md`
 
-### 🚧 In Progress
-- None currently
+### 🚧 In Progress  
+- M12: UPDATE & DELETE Statements - SQL parsing, logical/physical planning, execution complete. Testing in progress.
 
-### 📌 Roadmap (Upcoming)
-- M12: Indexing (B+Tree) — Secondary indexes + IndexScan.
-- M13: Transactions & Concurrency (2PL baseline) — Txn + Lock managers.
-- M14: Durability & Recovery (WAL) — WAL, checkpoints, crash recovery.
-- M15: Stretch — CBO, parallel execution, columnar extensions.
+### 📌 Production Roadmap (M12-M25)
+
+**See `docs/milestones/ROADMAP_M12-M25.md` for detailed specifications.**
+
+#### Phase 1: Basic SQL & Type System (2-3 weeks)
+- M12: UPDATE & DELETE Statements ⭐ **START HERE** (3-4 days)
+- M13: NULL Support & Three-Valued Logic (4-5 days)
+- M14: DEFAULT Values & Basic Constraints (3-4 days)
+- M15: ORDER BY, LIMIT, OFFSET (3-4 days)
+
+#### Phase 2: Production Essentials (7-10 weeks) 🔥 CRITICAL
+- M16: B+Tree Indexing (2-3 weeks) - 10-1000x query speedup
+- M17: Transactions & Concurrency (2PL) (3-4 weeks) - ACID guarantees
+- M18: Write-Ahead Log & Recovery (ARIES) (3-4 weeks) - Crash recovery
+
+#### Phase 3: Standard SQL Compliance (8-10 weeks)
+- M19: Statistics & Improved Cost Model (2 weeks)
+- M20: ANSI JOIN Syntax & OUTER JOINs (2 weeks)
+- M21: Subqueries & CTEs (2-3 weeks)
+- M22: Advanced Aggregations & Window Functions (2-3 weeks)
+
+#### Phase 4: Performance & Operations (7-8 weeks)
+- M23: Parallel Query Execution (3 weeks)
+- M24: Advanced Indexing Strategies (2 weeks)
+- M25: Monitoring, Metrics & Operations (2 weeks)
+
+**Estimated Timeline:**
+- To Production-Ready (M12-M18): ~3 months
+- To Feature-Complete (M12-M25): ~6 months
 
 ## Accomplishments (M1–M7) — Detailed
 
@@ -654,6 +678,47 @@ flowchart LR
 - ❌ Prefetching
 - ❌ Per-page latches (currently coarse-grained synchronization)
 
+## Next Steps: Getting Started with M12
+
+### Immediate Action: M12 - UPDATE & DELETE Statements
+
+**Why start here?**
+- ✅ Storage layer already supports update/delete operations
+- ✅ Quick win to build momentum (~3-4 days)
+- ✅ Makes database actually usable for CRUD operations
+- ✅ Foundation for testing constraints, transactions later
+
+**What you'll build:**
+```sql
+UPDATE users SET age = 30 WHERE id = 1;
+DELETE FROM users WHERE age < 18;
+```
+
+**Implementation checklist:**
+1. SQL Parser: Add UPDATE/DELETE grammar
+2. AST Nodes: UpdateStmt, DeleteStmt
+3. Logical Plans: LogicalUpdate, LogicalDelete
+4. Physical Operators: UpdateExec, DeleteExec
+5. Tests: BDD-style tests for all operations
+6. Documentation: docs/sql/update-delete.md
+
+**Quality Standards:**
+- ✅ Follow existing code patterns (Visitor, Strategy, Template)
+- ✅ SOLID principles (SRP for update vs delete logic)
+- ✅ DRY (reuse expression evaluator from SELECT)
+- ✅ Comprehensive tests (positive, negative, edge cases)
+- ✅ Clean documentation with HLD/LLD diagrams
+
+### After M12: The Critical Path to Production
+
+Once M12 is complete, the critical path is:
+1. **M13 (NULL)** → Foundation for OUTER JOIN and advanced features
+2. **M16 (B+Tree)** → Performance (10-1000x speedup for indexed queries)
+3. **M17 (Transactions)** → Correctness (ACID guarantees)
+4. **M18 (WAL)** → Durability (crash recovery)
+
+After M18, you have a **production-ready database** ✅
+
 ## Detailed Roadmap (M8–M15)
 
 ### M8 — SQL Parser & AST
@@ -809,3 +874,7 @@ Diagrams are provided using Mermaid (flows, sequences, class relationships). All
 
 - Target: Java 21 LTS via Gradle toolchain
 - Development: you can use Java 23 locally; Gradle compiles against 21 for compatibility.
+
+
+
+SELECT * from table_1;

@@ -1,5 +1,10 @@
 package io.github.anupam.evolvdb.optimizer;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.core.Database;
@@ -17,11 +22,6 @@ import io.github.anupam.evolvdb.types.Type;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class OptimizerE2ETest {
@@ -29,7 +29,8 @@ public class OptimizerE2ETest {
 
     private Database db() throws Exception {
         tmpDir = Files.createTempDirectory("evolvdb-opt-");
-        DbConfig cfg = DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
+        DbConfig cfg =
+                DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
         return new Database(cfg);
     }
 
@@ -37,7 +38,14 @@ public class OptimizerE2ETest {
     void cleanup() throws Exception {
         if (tmpDir != null && Files.exists(tmpDir)) {
             try (var walk = Files.walk(tmpDir)) {
-                walk.sorted((a,b)->b.getNameCount()-a.getNameCount()).forEach(p -> { try { Files.deleteIfExists(p); } catch (Exception ignored) {} });
+                walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(
+                                p -> {
+                                    try {
+                                        Files.deleteIfExists(p);
+                                    } catch (Exception ignored) {
+                                    }
+                                });
             }
         }
     }
@@ -47,21 +55,23 @@ public class OptimizerE2ETest {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
             // users(id, name)
-            Schema users = new Schema(List.of(
-                    new ColumnMeta("id", Type.INT, null),
-                    new ColumnMeta("name", Type.STRING, null)
-            ));
+            Schema users =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("id", Type.INT, null),
+                                    new ColumnMeta("name", Type.STRING, null)));
             cat.createTable("users", users);
             var ut = cat.openTable("users");
             ut.insert(new Tuple(users, List.of(1, "Alice")));
             ut.insert(new Tuple(users, List.of(2, "Bob")));
 
             // orders(order_id, user_id, amount)
-            Schema orders = new Schema(List.of(
-                    new ColumnMeta("order_id", Type.INT, null),
-                    new ColumnMeta("user_id", Type.INT, null),
-                    new ColumnMeta("amount", Type.INT, null)
-            ));
+            Schema orders =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("order_id", Type.INT, null),
+                                    new ColumnMeta("user_id", Type.INT, null),
+                                    new ColumnMeta("amount", Type.INT, null)));
             cat.createTable("orders", orders);
             var ot = cat.openTable("orders");
             ot.insert(new Tuple(orders, List.of(10, 1, 50)));
@@ -70,9 +80,11 @@ public class OptimizerE2ETest {
 
             // Query with join
             SqlParser parser = new SqlParser();
-            Statement stmt = (Statement) parser.parse(
-                "SELECT u.name, o.amount FROM users u, orders o WHERE u.id = o.user_id"
-            );
+            Statement stmt =
+                    (Statement)
+                            parser.parse(
+                                    "SELECT u.name, o.amount FROM users u, orders o WHERE u.id ="
+                                            + " o.user_id");
             Analyzer analyzer = new Analyzer();
             LogicalPlan logical = analyzer.analyze(stmt, cat, List.of());
 

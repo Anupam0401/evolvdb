@@ -6,11 +6,14 @@ public final class DropTable extends Statement {
 
     public DropTable(SourcePos pos, String tableName) {
         super(pos);
-        if (tableName == null || tableName.isBlank()) throw new IllegalArgumentException("tableName");
+        if (tableName == null || tableName.isBlank())
+            throw new IllegalArgumentException("tableName");
         this.tableName = tableName;
     }
 
-    public String tableName() { return tableName; }
+    public String tableName() {
+        return tableName;
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {

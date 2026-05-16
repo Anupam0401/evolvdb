@@ -1,12 +1,12 @@
 package io.github.anupam.evolvdb.optimizer.rewrite;
 
-import io.github.anupam.evolvdb.planner.logical.*;
-import io.github.anupam.evolvdb.sql.ast.ColumnRef;
-import io.github.anupam.evolvdb.sql.ast.Expr;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+
+import io.github.anupam.evolvdb.planner.logical.*;
+import io.github.anupam.evolvdb.sql.ast.ColumnRef;
+import io.github.anupam.evolvdb.sql.ast.Expr;
 
 /** Predicate pushdown for LogicalFilter nodes. Conservative across Projects/Aggregates. */
 public final class PredicatePushdownRule implements LogicalRule {
@@ -36,9 +36,13 @@ public final class PredicatePushdownRule implements LogicalRule {
     }
 
     private LogicalPlan rebuild(LogicalPlan plan, List<LogicalPlan> children) {
-        if (plan instanceof LogicalProject p) return new LogicalProject(children.get(0), p.items(), p.schema());
-        if (plan instanceof LogicalJoin j) return new LogicalJoin(children.get(0), children.get(1), j.type(), j.condition(), j.schema());
-        if (plan instanceof LogicalAggregate a) return new LogicalAggregate(children.get(0), a.groupBy(), a.aggregates(), a.schema());
+        if (plan instanceof LogicalProject p)
+            return new LogicalProject(children.get(0), p.items(), p.schema());
+        if (plan instanceof LogicalJoin j)
+            return new LogicalJoin(
+                    children.get(0), children.get(1), j.type(), j.condition(), j.schema());
+        if (plan instanceof LogicalAggregate a)
+            return new LogicalAggregate(children.get(0), a.groupBy(), a.aggregates(), a.schema());
         if (plan instanceof LogicalInsert) return plan; // no children
         return plan; // scan or others
     }
@@ -62,9 +66,12 @@ public final class PredicatePushdownRule implements LogicalRule {
 
             LogicalPlan newLeft = rewriteBottomUp(j.left());
             LogicalPlan newRight = rewriteBottomUp(j.right());
-            if (!leftOnly.isEmpty()) newLeft = new LogicalFilter(newLeft, ExprUtils.andAll(leftOnly));
-            if (!rightOnly.isEmpty()) newRight = new LogicalFilter(newRight, ExprUtils.andAll(rightOnly));
-            LogicalJoin rebuilt = new LogicalJoin(newLeft, newRight, j.type(), j.condition(), j.schema());
+            if (!leftOnly.isEmpty())
+                newLeft = new LogicalFilter(newLeft, ExprUtils.andAll(leftOnly));
+            if (!rightOnly.isEmpty())
+                newRight = new LogicalFilter(newRight, ExprUtils.andAll(rightOnly));
+            LogicalJoin rebuilt =
+                    new LogicalJoin(newLeft, newRight, j.type(), j.condition(), j.schema());
             if (remain.isEmpty()) return rebuilt;
             return new LogicalFilter(rebuilt, ExprUtils.andAll(remain));
         }
@@ -77,7 +84,8 @@ public final class PredicatePushdownRule implements LogicalRule {
         if (child instanceof LogicalAggregate a) {
             // Keep filter above aggregate to preserve semantics
             LogicalPlan c = rewriteBottomUp(a.child());
-            LogicalAggregate rebuilt = new LogicalAggregate(c, a.groupBy(), a.aggregates(), a.schema());
+            LogicalAggregate rebuilt =
+                    new LogicalAggregate(c, a.groupBy(), a.aggregates(), a.schema());
             return new LogicalFilter(rebuilt, predicate);
         }
         // Scan or others: cannot push further, attach here

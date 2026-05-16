@@ -1,9 +1,9 @@
 package io.github.anupam.evolvdb.planner.logical;
 
-import io.github.anupam.evolvdb.types.Schema;
-
 import java.util.List;
 import java.util.Objects;
+
+import io.github.anupam.evolvdb.types.Schema;
 
 public final class LogicalScan implements LogicalPlan {
     private final String tableName;
@@ -16,12 +16,26 @@ public final class LogicalScan implements LogicalPlan {
         this.schema = Objects.requireNonNull(schema, "schema");
     }
 
-    public String tableName() { return tableName; }
-    public String alias() { return alias; }
+    public String tableName() {
+        return tableName;
+    }
 
-    @Override public Schema schema() { return schema; }
-    @Override public List<LogicalPlan> children() { return List.of(); }
-    @Override public <R, C> R accept(LogicalPlanVisitor<R, C> visitor, C context) {
+    public String alias() {
+        return alias;
+    }
+
+    @Override
+    public Schema schema() {
+        return schema;
+    }
+
+    @Override
+    public List<LogicalPlan> children() {
+        return List.of();
+    }
+
+    @Override
+    public <R, C> R accept(LogicalPlanVisitor<R, C> visitor, C context) {
         return visitor.visitScan(this, context);
     }
 }

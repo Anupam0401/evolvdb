@@ -1,5 +1,7 @@
 package io.github.anupam.evolvdb.exec.plan;
 
+import java.util.List;
+
 import io.github.anupam.evolvdb.exec.ExecContext;
 import io.github.anupam.evolvdb.exec.op.PhysicalOperator;
 import io.github.anupam.evolvdb.exec.op.ProjectExec;
@@ -7,8 +9,6 @@ import io.github.anupam.evolvdb.optimizer.Cost;
 import io.github.anupam.evolvdb.optimizer.CostModel;
 import io.github.anupam.evolvdb.planner.logical.ProjectItem;
 import io.github.anupam.evolvdb.types.Schema;
-
-import java.util.List;
 
 public final class ProjectPlan implements PhysicalPlan {
     private final PhysicalPlan child;
@@ -21,8 +21,15 @@ public final class ProjectPlan implements PhysicalPlan {
         this.outSchema = outSchema;
     }
 
-    @Override public Schema schema() { return outSchema; }
-    @Override public List<PhysicalPlan> children() { return List.of(child); }
+    @Override
+    public Schema schema() {
+        return outSchema;
+    }
+
+    @Override
+    public List<PhysicalPlan> children() {
+        return List.of(child);
+    }
 
     @Override
     public PhysicalOperator create(ExecContext context) {

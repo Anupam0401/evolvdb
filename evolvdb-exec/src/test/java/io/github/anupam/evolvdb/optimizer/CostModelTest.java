@@ -1,12 +1,13 @@
 package io.github.anupam.evolvdb.optimizer;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.List;
 
 import io.github.anupam.evolvdb.types.ColumnMeta;
 import io.github.anupam.evolvdb.types.Schema;
 import io.github.anupam.evolvdb.types.Type;
-import java.util.List;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CostModelTest {
     @Test

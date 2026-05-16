@@ -4,9 +4,7 @@ import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.optimizer.stats.StatsProvider;
 import io.github.anupam.evolvdb.optimizer.stats.impl.InMemoryStatsProvider;
 
-/**
- * Execution-time context. In future this will carry transaction/session state.
- */
+/** Execution-time context. In future this will carry transaction/session state. */
 public final class ExecContext {
     private final CatalogManager catalog;
     private final boolean useOptimizer;
@@ -41,15 +39,27 @@ public final class ExecContext {
         this.stats = new InMemoryStatsProvider();
     }
 
-    public ExecContext(CatalogManager catalog, boolean useOptimizer, boolean useMemo, StatsProvider stats) {
+    public ExecContext(
+            CatalogManager catalog, boolean useOptimizer, boolean useMemo, StatsProvider stats) {
         this.catalog = catalog;
         this.useOptimizer = useOptimizer;
         this.useMemo = useMemo;
         this.stats = (stats == null) ? new InMemoryStatsProvider() : stats;
     }
 
-    public CatalogManager catalog() { return catalog; }
-    public boolean useOptimizer() { return useOptimizer; }
-    public boolean useMemo() { return useMemo; }
-    public StatsProvider stats() { return stats; }
+    public CatalogManager catalog() {
+        return catalog;
+    }
+
+    public boolean useOptimizer() {
+        return useOptimizer;
+    }
+
+    public boolean useMemo() {
+        return useMemo;
+    }
+
+    public StatsProvider stats() {
+        return stats;
+    }
 }

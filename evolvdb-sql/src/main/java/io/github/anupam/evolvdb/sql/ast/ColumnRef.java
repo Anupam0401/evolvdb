@@ -12,8 +12,13 @@ public final class ColumnRef extends Expr {
         this.column = column;
     }
 
-    public String table() { return table; }
-    public String column() { return column; }
+    public String table() {
+        return table;
+    }
+
+    public String column() {
+        return column;
+    }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {

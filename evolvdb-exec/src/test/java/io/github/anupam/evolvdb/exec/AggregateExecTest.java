@@ -1,5 +1,10 @@
 package io.github.anupam.evolvdb.exec;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
 import io.github.anupam.evolvdb.catalog.CatalogManager;
 import io.github.anupam.evolvdb.config.DbConfig;
 import io.github.anupam.evolvdb.core.Database;
@@ -15,11 +20,6 @@ import io.github.anupam.evolvdb.types.Type;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AggregateExecTest {
@@ -27,7 +27,8 @@ public class AggregateExecTest {
 
     private Database db() throws Exception {
         tmpDir = Files.createTempDirectory("evolvdb-exec-agg-");
-        DbConfig cfg = DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
+        DbConfig cfg =
+                DbConfig.builder().pageSize(4096).bufferPoolPages(32).dataDir(tmpDir).build();
         return new Database(cfg);
     }
 
@@ -35,7 +36,14 @@ public class AggregateExecTest {
     void cleanup() throws Exception {
         if (tmpDir != null && Files.exists(tmpDir)) {
             try (var walk = Files.walk(tmpDir)) {
-                walk.sorted((a,b)->b.getNameCount()-a.getNameCount()).forEach(p -> { try { Files.deleteIfExists(p); } catch (Exception ignored) {} });
+                walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                        .forEach(
+                                p -> {
+                                    try {
+                                        Files.deleteIfExists(p);
+                                    } catch (Exception ignored) {
+                                    }
+                                });
             }
         }
     }
@@ -44,10 +52,11 @@ public class AggregateExecTest {
     void group_by_count_executes() throws Exception {
         try (Database db = db()) {
             CatalogManager cat = db.catalog();
-            Schema orders = new Schema(List.of(
-                    new ColumnMeta("user_id", Type.INT, null),
-                    new ColumnMeta("amount", Type.INT, null)
-            ));
+            Schema orders =
+                    new Schema(
+                            List.of(
+                                    new ColumnMeta("user_id", Type.INT, null),
+                                    new ColumnMeta("amount", Type.INT, null)));
             cat.createTable("orders", orders);
             var t = cat.openTable("orders");
             t.insert(new Tuple(orders, List.of(1, 10)));
@@ -55,7 +64,10 @@ public class AggregateExecTest {
             t.insert(new Tuple(orders, List.of(2, 5)));
 
             SqlParser parser = new SqlParser();
-            Statement stmt = (Statement) parser.parse("SELECT user_id, COUNT(*) AS cnt FROM orders GROUP BY user_id");
+            Statement stmt =
+                    (Statement)
+                            parser.parse(
+                                    "SELECT user_id, COUNT(*) AS cnt FROM orders GROUP BY user_id");
             Analyzer analyzer = new Analyzer();
             LogicalPlan logical = analyzer.analyze(stmt, cat, List.of());
 
@@ -74,8 +86,14 @@ public class AggregateExecTest {
             for (Tuple row : out) {
                 int userId = (Integer) row.get(0);
                 long cnt = (Long) row.get(1);
-                if (userId == 1) { assertEquals(2L, cnt); seen1++; }
-                if (userId == 2) { assertEquals(1L, cnt); seen2++; }
+                if (userId == 1) {
+                    assertEquals(2L, cnt);
+                    seen1++;
+                }
+                if (userId == 2) {
+                    assertEquals(1L, cnt);
+                    seen2++;
+                }
             }
             assertEquals(1, seen1);
             assertEquals(1, seen2);

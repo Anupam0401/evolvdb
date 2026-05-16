@@ -9,6 +9,11 @@ dependencies {
     implementation(project(":evolvdb-storage-record"))
     implementation(project(":evolvdb-storage-page"))
     implementation(project(":evolvdb-storage-disk"))
+
+    // Database.execute() internally uses the SQL pipeline; needed at runtime
+    runtimeOnly(project(":evolvdb-sql"))
+    runtimeOnly(project(":evolvdb-planner"))
+    runtimeOnly(project(":evolvdb-exec"))
 }
 
 application {

@@ -1,24 +1,27 @@
 package io.github.anupam.evolvdb.exec;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
 import io.github.anupam.evolvdb.exec.op.*;
-import io.github.anupam.evolvdb.planner.logical.*;
 import io.github.anupam.evolvdb.exec.plan.PhysicalPlan;
 import io.github.anupam.evolvdb.optimizer.*;
 import io.github.anupam.evolvdb.optimizer.rewrite.LogicalRewriter;
-
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Set;
-import java.util.List;
+import io.github.anupam.evolvdb.planner.logical.*;
 
 /** Lowers a logical plan into a tree of Volcano operators. */
 public final class PhysicalPlanner {
 
     public PhysicalOperator plan(LogicalPlan logical, ExecContext ctx) {
         if (ctx.useOptimizer()) {
-            // Pre-optimization logical rewrites (predicate pushdown, projection pruning, join reordering)
+            // Pre-optimization logical rewrites (predicate pushdown, projection pruning, join
+            // reordering)
             logical = new LogicalRewriter(ctx.stats()).rewrite(logical);
-            VolcanoOptimizer opt = new VolcanoOptimizer(new DefaultCostModel(ctx.stats()), defaultRules(), ctx.useMemo());
+            VolcanoOptimizer opt =
+                    new VolcanoOptimizer(
+                            new DefaultCostModel(ctx.stats()), defaultRules(), ctx.useMemo());
             PhysicalPlan best = opt.optimize(logical, ctx);
             return best.create(ctx);
         }
@@ -47,7 +50,31 @@ public final class PhysicalPlanner {
         if (logical instanceof LogicalInsert i) {
             return new InsertExec(ctx.catalog(), i);
         }
-        throw new IllegalArgumentException("Unsupported logical node: " + logical.getClass().getSimpleName());
+        if (logical instanceof LogicalUpdate u) {
+            PhysicalOperator c = planDmlChild(u.child(), ctx);
+            return new UpdateExec(c, ctx.catalog(), u);
+        }
+        if (logical instanceof LogicalDelete d) {
+            PhysicalOperator c = planDmlChild(d.child(), ctx);
+            return new DeleteExec(c, ctx.catalog(), d);
+        }
+        throw new IllegalArgumentException(
+                "Unsupported logical node: " + logical.getClass().getSimpleName());
+    }
+
+    /**
+     * Plans the child of a DML operator (UPDATE/DELETE), using SeqScanWithRidExec at the leaf so
+     * that RecordIds propagate up through the operator chain.
+     */
+    private PhysicalOperator planDmlChild(LogicalPlan logical, ExecContext ctx) {
+        if (logical instanceof LogicalScan s) {
+            return new SeqScanWithRidExec(ctx.catalog(), s.tableName());
+        }
+        if (logical instanceof LogicalFilter f) {
+            PhysicalOperator c = planDmlChild(f.child(), ctx);
+            return new FilterExec(c, f.predicate());
+        }
+        return plan(logical, ctx);
     }
 
     private List<PhysicalRule> defaultRules() {
@@ -57,8 +84,9 @@ public final class PhysicalPlanner {
                 new Rules.ProjectRule(),
                 new Rules.JoinRule(),
                 new Rules.AggregateRule(),
-                new Rules.InsertRule()
-        );
+                new Rules.InsertRule(),
+                new Rules.UpdateRule(),
+                new Rules.DeleteRule());
     }
 
     private Set<String> collectQualifiers(LogicalPlan plan) {
