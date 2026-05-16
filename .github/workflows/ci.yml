@@ -46,10 +46,6 @@ jobs:
       env:
         GRADLE_OPTS: -Dorg.gradle.daemon=false
     
-    - name: Generate test report
-      if: always()
-      run: ./gradlew testReport --no-daemon
-    
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4

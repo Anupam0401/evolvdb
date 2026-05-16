@@ -20,7 +20,6 @@ public final class QueryGatherers {
      * limit} elements. Equivalent to SQL {@code LIMIT limit OFFSET offset}.
      */
     public static Gatherer<Tuple, ?, Tuple> limitOffset(long limit, long offset) {
-        record State(long skipped, long emitted) {}
         return Gatherer.ofSequential(
                 () -> new long[] {0, 0},
                 (state, element, downstream) -> {

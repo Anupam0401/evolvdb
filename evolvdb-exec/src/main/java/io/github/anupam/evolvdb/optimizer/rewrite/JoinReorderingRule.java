@@ -53,8 +53,6 @@ public final class JoinReorderingRule implements LogicalRule {
         // Greedy left-deep: pick smallest leaf by table stats
         int seedIdx = pickSmallestLeaf(leaves);
         LogicalPlan leftTree = rewrite(leaves.remove(seedIdx));
-        Set<Integer> leftSet = new HashSet<>();
-        leftSet.add(seedIdx); // indices original; not needed further
         List<Expr> remaining = new ArrayList<>(predicates);
         // Build iteratively
         while (!leaves.isEmpty()) {
